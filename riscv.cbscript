@@ -134,11 +134,15 @@ macro $jtype($class)
     imm_19_12 = inst / 0x1000 % 0x100
     imm_11    = inst / 0x100000 % 0x2
     imm_10_1  = inst / 0x200000 % 0x400
-    imm_20    = inst / 0x40000000 / 2 # Extra divide because 0x80000000 is out of range...
 
     # Reconstruct imm from parts
     # TODO: Is sign extending correct here?
-    imm = imm_12 * 1048576 + imm_19_12 * 4096 + imm_11 * 2048 + imm_10_1 * 2
+    imm = imm_19_12 * 4096 + imm_11 * 2048 + imm_10_1 * 2
+
+    # This decodes imm_20 using an if instead of division and multiply
+    if inst < 0
+        imm -= 1048576
+    end
 
     if $debug_decode
         tell @a "(pc): (inst) $class jtype {wopcode=(opcode) {wrd=x(rd) {wimm=(imm)"
@@ -272,9 +276,21 @@ function cycle()
         end
         case $"0b1101111"
             $jtype("JAL")
+            if rd > 0
+                res = pc + 4
+                x[rd] = res
+            end
+            pc += imm - 4
+            handled = 1
         end
         case $"0b1100111"
             $itype("JALR")
+            if rd > 0
+                res = pc + 4
+                x[rd] = res
+            end
+            pc = x[rs1] + imm - 4
+            handled = 1
         end
         case $"0b0110111"
             $utype("LUI")

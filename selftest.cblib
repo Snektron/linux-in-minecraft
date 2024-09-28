@@ -157,6 +157,31 @@ function test_arith()
         "auipc x4, 5555",
         "auipc x0, 1",
     ])
+
+    $test("jal", [
+        "jal x1, l1",
+        ".word 0",
+        "l2:",
+        "jal x3, l3",
+        ".word 0",
+        "l3:",
+        "jal x0, 1000",
+        "l1:",
+        "jal x2, l2",
+        ".word 0",
+    ])
+
+    $test("jalr", [
+        "add x1, x0, 20",
+        "jalr x2, x1, 0",
+        ".word 0",
+        "jalr x4, x1, 8",
+        ".word 0",
+        "jalr x3, x1, -8",
+        ".word 0",
+        "jalr x0, x0, 1234",
+        ".word 0",
+    ])
 end
 
 function selftest()
