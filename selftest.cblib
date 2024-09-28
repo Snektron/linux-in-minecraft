@@ -48,8 +48,10 @@ macro $test($test_name, $test_case)
 
     if error
         tell @a "{r$test_name {Rfailed"
+        failed_tests++
     else
         tell @a "{g$test_name {Gok"
+        passed_tests++
     end
 end
 
@@ -101,7 +103,7 @@ function test_arith()
         "srai x7, x1, 6",
         "srli x7, x1, 6",
         "addi x10, x0, -1111",
-        "addi x11, x0, 4",
+        "addi x11, x0, 19",
         "sra x12, x10, x11",
         "sll x13, x10, x11",
         "srl x14, x10, x11",
@@ -137,11 +139,19 @@ function test_arith()
         "sltiu x10, x1, -1000",
         "sltiu x11, x1, 1000",
         "sltu x12, x1, x0",
+        "addi x1, x0, -9",
+        "sltiu x13, x1, -1000",
+        "sltiu x14, x1, -1",
     ])
 end
 
 function selftest()
     tell @a "running tests"
+    passed_tests = 0
+    failed_tests = 0
+
     test_arith()
+
+    tell @a "(passed_tests) tests passed, (failed_tests) tests failed"
 end
 

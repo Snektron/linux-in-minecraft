@@ -82,6 +82,7 @@ def run(binary):
         print(result.stderr)
     registers = result.stdout.strip().split('\n')
     registers = [int(line) for line in registers]
+    registers = [value - 2**32 if value >= 2**31 else value for value in registers]
     return registers
 
 if __name__ == '__main__':

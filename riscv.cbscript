@@ -231,12 +231,12 @@ function op()
 end
 
 function op_imm()
-    # Derive funct7 from imm_11_5 if we are dealing with shift operations,
+    # Derive funct7 from imm if we are dealing with shift operations,
     # and then just call the regular arithmetic handler.
     if funct3 == 0x1
-        funct7 = imm_11_5
+        funct7 = imm / 32
     else if funct3 == 0x5
-        funct7 = imm_11_5
+        funct7 = imm / 32
     else
         funct7 = 0
     end
