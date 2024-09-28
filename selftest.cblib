@@ -143,6 +143,20 @@ function test_arith()
         "sltiu x13, x1, -1000",
         "sltiu x14, x1, -1",
     ])
+
+    $test("lui", [
+        "lui x1, 123",
+        "lui x2, 1048575",
+        "lui x0, 4",
+    ])
+
+    $test("auipc", [
+        "auipc x1, 1234",
+        "auipc x2, 0",
+        "auipc x3, 1048575",
+        "auipc x4, 5555",
+        "auipc x0, 1",
+    ])
 end
 
 function selftest()

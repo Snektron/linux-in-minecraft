@@ -247,7 +247,6 @@ end
 # Execute one instruction
 function cycle()
     inst = memory_get(pc / 4)
-    pc += 4
     # Opcode is low 7 bits
     opcode = inst % 128
     # tell @a "(pc): {winst=(inst) {wopcode=(opcode)"
@@ -279,9 +278,19 @@ function cycle()
         end
         case $"0b0110111"
             $utype("LUI")
+            if rd > 0
+                res = imm * 0x1000
+                x[rd] = res
+            end
+            handled = 1
         end
         case $"0b0010111"
             $utype("AUIPC")
+            if rd > 0
+                res = pc + imm * 0x1000
+                x[rd] = res
+            end
+            handled = 1
         end
         case $"0b1110011"
             $itype("SYSTEM")
@@ -290,9 +299,12 @@ function cycle()
             $rtype("ATOMIC")
         end
     end
+
     unless handled
         tell @a "{Runhandled instruction {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
         error = 1
+    else
+        pc += 4
     end
 end
 
