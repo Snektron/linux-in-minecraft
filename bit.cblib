@@ -1,0 +1,96 @@
+function bit_or(a, b)
+    res = 0
+    bit = 1
+    for i = 0 to 32
+        if a % 2 + b % 2 > 0
+            res += bit
+        end
+        a /= 2
+        b /= 2
+        bit *= 2
+    end
+    return res
+end
+
+function bit_and(a, b)
+    res = 0
+    bit = 1
+    for i = 0 to 32
+        if a % 2 + b % 2 == 2
+            res += bit
+        end
+        a /= 2
+        b /= 2
+        bit *= 2
+    end
+    return res
+end
+
+function bit_xor(a, b)
+    res = 0
+    bit = 1
+    for i = 0 to 32
+        if a % 2 + b % 2 == 1
+            res += bit
+        end
+        a /= 2
+        b /= 2
+        bit *= 2
+    end
+    return res
+end
+
+function bit_sll(a, b)
+    if b >= 16
+        a *= 0x10000
+        b -= 16
+    end
+    if b >= 8
+        a *= 0x100
+        b -= 8
+    end
+    if b >= 4
+        a *= 0x10
+        b -= 4
+    end
+    if b >= 2
+        a *= 0x4
+        b -= 2
+    end
+    if b >= 1
+        a *= 0x2
+    end
+    return a
+end
+
+function bit_sra(a, b)
+    if b >= 16
+        a /= 0x10000
+        b -= 16
+    end
+    if b >= 8
+        a /= 0x100
+        b -= 8
+    end
+    if b >= 4
+        a /= 0x10
+        b -= 4
+    end
+    if b >= 2
+        a /= 0x4
+        b -= 2
+    end
+    if b >= 1
+        a /= 0x2
+    end
+    return a
+end
+
+function bit_srl(a, b)
+    a = bit_sra(a, b)
+    if a < 0
+        a *= -1
+    end
+    return a
+end
+

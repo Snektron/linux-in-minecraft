@@ -1,0 +1,308 @@
+dir "/home/robin/.local/share/PrismLauncher/instances/linux/.minecraft/saves/linux/"
+desc "oef auwie oei"
+
+array x[32]
+
+import riscv.py
+import bit
+import memory
+import selftest
+
+$debug_decode = 0
+
+function machine_reset()
+    pc = 0
+    error = 0
+    for i = 0 to 32
+        x[i] = 0
+    end
+
+    memory_clear()
+end
+
+function machine_dump_state()
+    tell @a "machine state: {wpc=(pc) {werror=(error)"
+
+    x0 = x[0]
+    x1 = x[1]
+    x2 = x[2]
+    x3 = x[3]
+    x4 = x[4]
+    x5 = x[5]
+    x6 = x[6]
+    x7 = x[7]
+    x8 = x[8]
+    x9 = x[9]
+    x10 = x[10]
+    x11 = x[11]
+    x12 = x[12]
+    x13 = x[13]
+    x14 = x[14]
+    x15 = x[15]
+    x16 = x[16]
+    x17 = x[17]
+    x18 = x[18]
+    x19 = x[19]
+    x20 = x[20]
+    x21 = x[21]
+    x22 = x[22]
+    x23 = x[23]
+    x24 = x[24]
+    x25 = x[25]
+    x26 = x[26]
+    x27 = x[27]
+    x28 = x[28]
+    x29 = x[29]
+    x30 = x[30]
+    x31 = x[31]
+
+    tell @a "{wx00=(x0) {wx01=(x1) {wx02=(x2) {wx03=(x3) {wx04=(x4) {wx05=(x5) {wx06=(x6) {wx07=(x7)"
+    tell @a "{wx08=(x8) {wx09=(x9) {wx10=(x10) {wx11=(x11) {wx12=(x12) {wx13=(x13) {wx14=(x14) {wx15=(x15)"
+    tell @a "{wx16=(x16) {wx17=(x17) {wx18=(x18) {wx19=(x19) {wx20=(x20) {wx21=(x21) {wx22=(x22) {wx23=(x23)"
+    tell @a "{wx24=(x24) {wx25=(x25) {wx26=(x26) {wx27=(x27) {wx28=(x28) {wx29=(x29) {wx30=(x30) {wx31=(x31)"
+end
+
+macro $rtype($class)
+    rd     = inst / 0x80 % 0x20
+    funct3 = inst / 0x1000 % 0x8
+    rs1    = inst / 0x8000 % 0x20
+    rs2    = inst / 0x100000 % 0x20
+    funct7 = inst / 0x2000000 % 0x80
+
+    if $debug_decode
+        tell @a "(pc): (inst) $class rtype {wopcode=(opcode) {wrd=x(rd) {wrs1=x(rs1) {wrs2=x(rs2) {wfunct3=(funct3) {wfunct7=(funct7)"
+    end
+end
+
+macro $itype($class)
+    rd     = inst / 0x80 % 0x20
+    funct3 = inst / 0x1000 % 0x8
+    rs1    = inst / 0x8000 % 0x20
+    imm    = inst / 0x100000
+
+    if $debug_decode
+        tell @a "(pc): (inst) $class itype {wopcode=(opcode) {wrd=x(rd) {wrs1=x(rs1) {wimm=(imm) {wfunct3=(funct3)"
+    end
+end
+
+macro $stype($class)
+    imm_4_0  = inst / 0x80 % 0x20
+    funct3   = inst / 0x1000 % 0x8
+    rs1      = inst / 0x8000 % 0x20
+    rs2      = inst / 0x100000 % 0x20
+    imm_11_4 = inst / 0x2000000
+
+    # Note: imm_11_5 is already signed extended here
+    imm = imm_11_5 * 32 + imm_4_0
+
+    if $debug_decode
+        tell @a "(pc): (inst) $class stype {wopcode=(opcode) {wrs1=x(rs1) {wrs2=x(rs2) {wimm=(imm) {wfunct3=(funct3)"
+    end
+end
+
+macro $btype($class)
+    imm_11   = inst / 0x80 % 0x2
+    imm_4_1  = inst / 0x100 % 0x10
+    funct3   = inst / 0x1000 % 0x8
+    rs1      = inst / 0x8000 % 0x20
+    rs2      = inst / 0x100000 % 0x20
+    imm_10_5 = inst / 0x2000000 % 0x40
+    imm_12   = inst / 0x40000000 / 2 # Extra divide because 0x80000000 is out of range...
+
+    # Reconstruct imm from parts
+    # TODO: Is sign extending correct here?
+    imm = imm_12 * 4096 + imm_11 * 2048 + imm_10_5 * 32 + imm_4_1 * 2
+
+    if $debug_decode
+        tell @a "(pc): (inst) $class btype {wopcode=(opcode) {wrs1=x(rs1) {wrs2=x(rs2) {wimm=(imm) {wfunct3=(funct3)"
+    end
+end
+
+macro $utype($class)
+    rd  = inst / 0x80 % 0x20
+    imm = inst / 0x1000
+
+    # TODO: Should this be sign extended or not?
+
+    if $debug_decode
+        tell @a "(pc): (inst) $class utype {wopcode=(opcode) {wrd=x(rd) {wimm=(imm)"
+    end
+end
+
+macro $jtype($class)
+    rd        = inst / 0x80 % 0x20
+    imm_19_12 = inst / 0x1000 % 0x100
+    imm_11    = inst / 0x100000 % 0x2
+    imm_10_1  = inst / 0x200000 % 0x400
+    imm_20    = inst / 0x40000000 / 2 # Extra divide because 0x80000000 is out of range...
+
+    # Reconstruct imm from parts
+    # TODO: Is sign extending correct here?
+    imm = imm_12 * 1048576 + imm_19_12 * 4096 + imm_11 * 2048 + imm_10_1 * 2
+
+    if $debug_decode
+        tell @a "(pc): (inst) $class jtype {wopcode=(opcode) {wrd=x(rd) {wimm=(imm)"
+    end
+end
+
+function arith(lhs, rhs)
+    switch funct3
+        case 0x0
+            switch funct7
+                case 0x00
+                    # ADD
+                    res = lhs + rhs
+                    handled = 1
+                end
+                case 0x20
+                    # SUB
+                    res = lhs - rhs
+                    handled = 1
+                end
+            end
+        end
+        case 0x1
+            # SLL
+            if funct7 == 0x00
+                res = bit_sll(lhs, rhs % 32)
+                handled = 1
+            end
+        end
+        case 0x2
+            # SLT
+            if lhs < rhs
+                res = 1
+            else
+                res = 0
+            end
+            handled = 1
+        end
+        case 0x3
+            # SLTU
+            # Note: lhs is still sign extended as usual
+            # Need to split the computation in 2 parts because minecraft can't
+            # parse -2147483648 (it tries to parse it as a positive int), or
+            # maybe cbscript just doesn't compile it correctly.
+            if lhs - 2147483647 - 1 < rhs - 2147483647 - 1
+                res = 1
+            else
+                res = 0
+            end
+            handled = 1
+        end
+        case 0x4
+            # XORI
+            res = bit_xor(lhs, rhs)
+            handled = 1
+        end
+        case 0x5
+            switch funct7
+                case 0x00
+                    # SRL
+                    res = bit_srl(lhs, rhs % 32)
+                    handled = 1
+                end
+                case 0x20
+                    # SRA
+                    res = bit_sra(lhs, rhs % 32)
+                    handled = 1
+                end
+            end
+        end
+        case 0x6
+            # OR
+            res = bit_or(lhs, rhs)
+            handled = 1
+        end
+        case 0x7
+            # AND
+            res = bit_and(lhs, rhs)
+            handled = 1
+        end
+    end
+
+    if handled and rd > 0
+        x[rd] = res
+    end
+end
+
+function op()
+    arith(x[rs1], x[rs2])
+end
+
+function op_imm()
+    # Derive funct7 from imm_11_5 if we are dealing with shift operations,
+    # and then just call the regular arithmetic handler.
+    if funct3 == 0x1
+        funct7 = imm_11_5
+    else if funct3 == 0x5
+        funct7 = imm_11_5
+    else
+        funct7 = 0
+    end
+
+    arith(x[rs1], imm)
+end
+
+# Execute one instruction
+function cycle()
+    inst = memory_get(pc / 4)
+    pc += 4
+    # Opcode is low 7 bits
+    opcode = inst % 128
+    # tell @a "(pc): {winst=(inst) {wopcode=(opcode)"
+
+    handled = 0
+    switch opcode
+        case $"0b0110011"
+            $rtype("OP")
+            op()
+        end
+        case $"0b0010011"
+            $itype("OP-IMM")
+            op_imm()
+        end
+        case $"0b0000011"
+            $itype("LOAD")
+        end
+        case $"0b0100011"
+            $stype("STORE")
+        end
+        case $"0b1100011"
+            $btype("BRANCH")
+        end
+        case $"0b1101111"
+            $jtype("JAL")
+        end
+        case $"0b1100111"
+            $itype("JALR")
+        end
+        case $"0b0110111"
+            $utype("LUI")
+        end
+        case $"0b0010111"
+            $utype("AUIPC")
+        end
+        case $"0b1110011"
+            $itype("SYSTEM")
+        end
+        case $"0b0101111"
+            $rtype("ATOMIC")
+        end
+    end
+    unless handled
+        tell @a "{Runhandled instruction {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
+        error = 1
+    end
+end
+
+reset
+    tell @a "reset"
+
+    selftest()
+
+    tell @a "done"
+end
+
+clock tick
+end

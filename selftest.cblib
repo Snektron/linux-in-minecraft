@@ -1,0 +1,147 @@
+macro $test($test_name, $test_case)
+    tell @a "{Grunning test {g$test_name"
+
+    machine_reset()
+
+    $program = $assemble($test_case)
+    len = 0
+    for $inst in $program
+        value = $inst
+        memory_set(len, value)
+        len++
+    end
+    len *= 4
+
+    while pc < len and not error
+        cycle()
+    end
+
+    $expected = $run($program)
+
+    if error
+        tell @a "{Rmachine entered error state"
+    end
+
+    if not error
+        $expected_pc = $expected[32]
+        expected_pc = $expected_pc
+
+        if expected_pc == pc
+        else
+            tell @a "{Runexpected final PC: expected {wpc=(expected_pc){R, got (pc)"
+            error = 1
+        end
+    end
+
+    if not error
+        for $i in $range(32)
+            $val = $expected[$i]
+            actual = x[$i]
+            expected = $val
+            if actual == expected
+            else
+                tell @a "{Rinvalid final state: expected {wx$i={W$val{R, got (actual)"
+                error = 1
+            end
+        end
+    end
+
+    if error
+        tell @a "{r$test_name {Rfailed"
+    else
+        tell @a "{g$test_name {Gok"
+    end
+end
+
+function test_arith()
+    $test("add, sub, addi", [
+        "addi x1, x0, 1000",
+        "addi x2, x0, -1234",
+        "add x3, x1, x2",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x3, x3, x3",
+        "add x4, x3, x3",
+        "add x3, x4, x3",
+        "add x3, x3, x3",
+        "add x5, x3, x3",
+        "add x0, x3, x1",
+        "add x7, x0, x4",
+        "sub x8, x5, x3",
+        "sub x9, x8, x1",
+    ])
+
+    $test("shift", [
+        "addi x1, x0, 1234",
+        "slli x2, x1, 3",
+        "srli x3, x2, 3",
+        "addi x8, x0, 1",
+        "slli x4, x8, 31",
+        "srli x5, x4, 10",
+        "srai x6, x4, 10",
+        "srai x7, x1, 6",
+        "srli x7, x1, 6",
+        "addi x10, x0, -1111",
+        "addi x11, x0, 4",
+        "sra x12, x10, x11",
+        "sll x13, x10, x11",
+        "srl x14, x10, x11",
+        "addi x16, x0, 30",
+        "sll x15, x1, x16",
+    ])
+
+    $test("bitwise", [
+        "ori x1, x0, 0b0001",
+        "ori x2, x1, 0b1000",
+        "ori x3, x2, -1",
+        "andi x4, x3, 1234",
+        "andi x5, x4, -1111",
+        "xori x9, x5, 111",
+        "xori x10, x5, -44",
+        "or x6, x4, x5",
+        "and x7, x4, x5",
+        "xor x8, x4, x5",
+    ])
+
+    $test("slt", [
+        "addi x1, x0, 666",
+        "slti x2, x1, 77",
+        "slti x3, x1, 777",
+        "slti x4, x1, 666",
+        "addi x8, x0, -123",
+        "slti x5, x8, -100",
+        "slti x6, x8, -200",
+        "slti x7, x8, -123",
+        "slt x9, x1, x8",
+        "slt x9, x8, x1",
+        "addi x1, x0, 999",
+        "sltiu x10, x1, -1000",
+        "sltiu x11, x1, 1000",
+        "sltu x12, x1, x0",
+    ])
+end
+
+function selftest()
+    tell @a "running tests"
+    test_arith()
+end
+

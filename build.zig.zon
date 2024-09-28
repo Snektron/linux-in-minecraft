@@ -1,0 +1,11 @@
+.{
+    .name = "riscv-validator",
+    .version = "0.0.1",
+    .dependencies = .{
+        .mini_rv32ima = .{
+            .url = "https://github.com/cnlohr/mini-rv32ima/archive/997abfcae9df854fdc62ebdfe66663f6db2bc7d5.tar.gz",
+            .hash = "122049d5ca77982e3146aba499dcc408ad1f710ada9047451a680984c434f7863e19",
+        },
+    },
+    .paths = .{""},
+}
