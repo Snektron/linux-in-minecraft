@@ -307,65 +307,57 @@ end
 
 function load()
     src = x[rs1] + imm
-    res = 0
-
-    # Happy path: aligned word load
-    if funct3 == 0x2 and src % 4 == 0
-        res = memory_get(src / 4)
-        handled = 1
-    else
+    switch funct3
+        case 0x0
+            # Load byte, signed
+            res = memory_load_u8(src)
+            # Sign extend
+            if res >= 0x80
+                res -= 0x100
+            end
+            handled = 1
+        end
+        case 0x1
+            # Load half, signed
+            v0 = memory_load_u8(src)
+            v1 = memory_load_u8(src + 1)
+            res = v1 * 0x100 + v0
+            if res >= 0x8000
+                res -= 0x10000
+            end
+            handled = 1
+        end
+        case 0x2
+            # Load word
+            # Happy path: aligned word load
+            if src % 4 == 0
+                res = memory_get(src / 4)
+            else
+                v0 = memory_load_u8(src)
+                v1 = memory_load_u8(src + 1)
+                v2 = memory_load_u8(src + 2)
+                v3 = memory_load_u8(src + 3)
+                res = v3 * 0x1000000 + v2 * 0x10000 + v1 * 0x100 + v0
+            end
+            handled = 1
+        end
+        case 0x4
+            # Load byte, unsigned
+            res = memory_load_u8(src)
+            handled = 1
+        end
+        case 0x5
+            # Load half, unsigned
+            v0 = memory_load_u8(src)
+            v1 = memory_load_u8(src + 1)
+            res = v1 * 0x100 + v0
+            handled = 1
+        end
     end
 
     if rd > 0 and handled
         x[rd] = res
     end
-end
-
-function memory_store_u8(addr, byte)
-    # The memory is in words, so we need to perform
-    # a SDWA RMW.
-    # TODO: This can probably be optimized by caching the temporary memory
-    # thingies
-
-    offset = addr / 4
-    subword = addr % 4
-    tmp = memory_get(offset)
-
-    # Update the relevant byte in the word
-    # Writing these cases as a single line seemed buggy
-    switch subword
-        case 0
-            tmp /= 0x100
-            tmp *= 0x100
-            tmp += byte
-        end
-        case 1
-            tmp2 = tmp
-            # Clear out relevant bits
-            tmp /= 0x10000
-            tmp *= 0x10000
-            tmp += tmp2 % 0x100
-            # Insert new bits
-            tmp += byte * 0x100
-        end
-        case 2
-            # This copy is required for some reason
-            tmp2 = tmp
-            # Clear out relevant bits
-            tmp /= 0x1000000
-            tmp *= 0x1000000
-            tmp += tmp2 % 0x10000
-            # Insert new bits
-            tmp += byte * 0x10000
-        end
-        case 3
-            tmp %= 0x1000000
-            tmp += byte * 0x1000000
-        end
-    end
-
-    # And write back to memory
-    memory_set(offset, tmp)
 end
 
 function store()

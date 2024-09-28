@@ -16,6 +16,7 @@ function memory_clear()
     end
 end
 
+# Note: addr is in *words*, not in bytes!
 function memory_get(addr)
     # TODO: Caching system
     # Index the first level
@@ -43,6 +44,7 @@ function memory_get(addr)
     return _result
 end
 
+# Note: addr is in *words*, not in bytes!
 function memory_set(addr, value)
     # TODO: Caching system
     # Convert value from scoreboard value to storage value
@@ -84,3 +86,70 @@ function memory_set(addr, value)
     end
 end
 
+# Note: addr is in *bytes*, not in words!
+function memory_store_u8(addr, byte)
+    # The memory is in words, so we need to perform
+    # a SDWA RMW.
+    # TODO: This can probably be optimized by caching the temporary memory
+    # thingies
+
+    offset = addr / 4
+    subword = addr % 4
+    tmp = memory_get(offset)
+
+    # Update the relevant byte in the word
+    # Writing these cases as a single line seemed buggy
+    switch subword
+        case 0
+            tmp /= 0x100
+            tmp *= 0x100
+            tmp += byte
+        end
+        case 1
+            tmp2 = tmp
+            # Clear out relevant bits
+            tmp /= 0x10000
+            tmp *= 0x10000
+            tmp += tmp2 % 0x100
+            # Insert new bits
+            tmp += byte * 0x100
+        end
+        case 2
+            # This copy is required for some reason
+            tmp2 = tmp
+            # Clear out relevant bits
+            tmp /= 0x1000000
+            tmp *= 0x1000000
+            tmp += tmp2 % 0x10000
+            # Insert new bits
+            tmp += byte * 0x10000
+        end
+        case 3
+            tmp %= 0x1000000
+            tmp += byte * 0x1000000
+        end
+    end
+
+    # And write back to memory
+    memory_set(offset, tmp)
+end
+
+# Note: addr is in *bytes*, not in words!
+function memory_load_u8(addr)
+    offset = addr / 4
+    subword = addr % 4
+    res = memory_get(offset)
+    switch subword
+        case 1
+            res /= 0x100
+        end
+        case 2
+            res /= 0x10000
+        end
+        case 3
+            res /= 0x1000000
+        end
+    end
+    res %= 0x100
+    return res
+end

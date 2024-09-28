@@ -55,7 +55,7 @@ macro $test($test_name, $test_case)
     end
 end
 
-function test_arith()
+function run_tests()
     $test("add, sub, addi", [
         "addi x1, x0, 1000",
         "addi x2, x0, -1234",
@@ -207,7 +207,7 @@ function test_arith()
         "l6:",
     ])
 
-    $test("store, word aligned", [
+    $test("load and store, word aligned", [
         "addi x1, x0, 123",
         "addi x2, x0, 456",
         "addi x3, x0, -555",
@@ -279,6 +279,55 @@ function test_arith()
         "lw x15, 4(x1)",
     ])
 
+    $test("load, byte", [
+        "addi x1, x0, 500",
+        "addi x31, x0, 509",
+        "li x2, 0x01234567",
+        "li x3, 0x89ABCDEF",
+        "sw x4, 0(x1)",
+        "sw x5, 4(x1)",
+        "lb x6, 0(x1)",
+        "lbu x7, 1(x1)",
+        "lb x8, 2(x1)",
+        "lbu x9, 3(x1)",
+        "lb x10, 4(x1)",
+        "lbu x11, -4(x31)",
+        "lb x12, -3(x31)",
+        "lbu x13, -2(x31)",
+        "lb x14, -1(x31)",
+    ])
+
+    $test("load, half", [
+        "addi x1, x0, 500",
+        "addi x31, x0, 509",
+        "li x2, 0x01234567",
+        "li x3, 0x89ABCDEF",
+        "lhu x6, 0(x1)",
+        "lh x7, 1(x1)",
+        "lhu x8, 2(x1)",
+        "lh x9, 3(x1)",
+        "lhu x10, 4(x1)",
+        "lh x11, -4(x31)",
+        "lhu x12, -3(x31)",
+        "lh x13, -2(x31)",
+        "lhu x14, -1(x31)",
+    ])
+
+    $test("load, word misaligned", [
+        "addi x1, x0, 500",
+        "addi x31, x0, 509",
+        "li x2, 0x01234567",
+        "li x3, 0x89ABCDEF",
+        "lw x6, 0(x1)",
+        "lw x7, 1(x1)",
+        "lw x8, 2(x1)",
+        "lw x9, 3(x1)",
+        "lw x10, 4(x1)",
+        "lw x11, -4(x31)",
+        "lw x12, -3(x31)",
+        "lw x13, -2(x31)",
+        "lw x14, -1(x31)",
+    ])
 end
 
 function selftest()
@@ -286,7 +335,7 @@ function selftest()
     passed_tests = 0
     failed_tests = 0
 
-    test_arith()
+    run_tests()
 
     tell @a "(passed_tests) tests passed, (failed_tests) tests failed"
 end
