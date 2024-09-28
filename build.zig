@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
     exe.addCSourceFile(.{
         .file = b.path("validator.c"),
     });
+    exe.root_module.sanitize_c = false; // sanitizer triggers on misaligned access in mini-rv32ima, even though that should be fine...
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

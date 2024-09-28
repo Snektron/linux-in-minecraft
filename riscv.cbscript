@@ -90,7 +90,7 @@ macro $stype($class)
     funct3   = inst / 0x1000 % 0x8
     rs1      = inst / 0x8000 % 0x20
     rs2      = inst / 0x100000 % 0x20
-    imm_11_4 = inst / 0x2000000
+    imm_11_5 = inst / 0x2000000
 
     # Note: imm_11_5 is already signed extended here
     imm = imm_11_5 * 32 + imm_4_0
@@ -305,6 +305,103 @@ function branch()
     end
 end
 
+function load()
+    src = x[rs1] + imm
+    res = 0
+
+    # Happy path: aligned word load
+    if funct3 == 0x2 and src % 4 == 0
+        res = memory_get(src / 4)
+        handled = 1
+    else
+    end
+
+    if rd > 0 and handled
+        x[rd] = res
+    end
+end
+
+function memory_store_u8(addr, byte)
+    # The memory is in words, so we need to perform
+    # a SDWA RMW.
+    # TODO: This can probably be optimized by caching the temporary memory
+    # thingies
+
+    offset = addr / 4
+    subword = addr % 4
+    tmp = memory_get(offset)
+
+    # Update the relevant byte in the word
+    # Writing these cases as a single line seemed buggy
+    switch subword
+        case 0
+            tmp /= 0x100
+            tmp *= 0x100
+            tmp += byte
+        end
+        case 1
+            tmp2 = tmp
+            # Clear out relevant bits
+            tmp /= 0x10000
+            tmp *= 0x10000
+            tmp += tmp2 % 0x100
+            # Insert new bits
+            tmp += byte * 0x100
+        end
+        case 2
+            # This copy is required for some reason
+            tmp2 = tmp
+            # Clear out relevant bits
+            tmp /= 0x1000000
+            tmp *= 0x1000000
+            tmp += tmp2 % 0x10000
+            # Insert new bits
+            tmp += byte * 0x10000
+        end
+        case 3
+            tmp %= 0x1000000
+            tmp += byte * 0x1000000
+        end
+    end
+
+    # And write back to memory
+    memory_set(offset, tmp)
+end
+
+function store()
+    dst = x[rs1] + imm
+    val = x[rs2]
+
+    switch funct3
+        case 0x0
+            # Byte store
+            memory_store_u8(dst, val % 0x100)
+            handled = 1
+        end
+        case 0x1
+            # Half store
+            # TODO: Optimize
+            memory_store_u8(dst, val % 0x100)
+            memory_store_u8(dst + 1, val / 0x100 % 0x100)
+            handled = 1
+        end
+        case 0x2
+            # Word store
+            if dst % 4 == 0
+                # Happy path: aligned word store
+                memory_set(dst / 4, val)
+            else
+                # TODO: Optimize
+                memory_store_u8(dst, val % 0x100)
+                memory_store_u8(dst + 1, val / 0x100 % 0x100)
+                memory_store_u8(dst + 2, val / 0x10000 % 0x100)
+                memory_store_u8(dst + 3, val / 0x1000000 % 0x100)
+            end
+            handled = 1
+        end
+    end
+end
+
 # Execute one instruction
 function cycle()
     inst = memory_get(pc / 4)
@@ -324,9 +421,11 @@ function cycle()
         end
         case $"0b0000011"
             $itype("LOAD")
+            load()
         end
         case $"0b0100011"
             $stype("STORE")
+            store()
         end
         case $"0b1100011"
             $btype("BRANCH")

@@ -77,9 +77,11 @@ def assemble(inp, test = False):
 def run(binary):
     import subprocess
     stdin = '\n'.join([str(v) for v in binary]) + '\nend\n'
-    result = subprocess.run(["zig", "build", "run"], check=True, input=stdin, text=True, capture_output=True)
+    result = subprocess.run(["zig", "build", "run"], input=stdin, text=True, capture_output=True)
     if len(result.stderr) > 0:
         print(result.stderr)
+    if result.returncode != 0:
+        raise ValueError()
     registers = result.stdout.strip().split('\n')
     registers = [int(line) for line in registers]
     registers = [value - 2**32 if value >= 2**31 else value for value in registers]

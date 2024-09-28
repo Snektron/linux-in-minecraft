@@ -206,6 +206,79 @@ function test_arith()
         ".word 0",
         "l6:",
     ])
+
+    $test("store, word aligned", [
+        "addi x1, x0, 123",
+        "addi x2, x0, 456",
+        "addi x3, x0, -555",
+        "addi x4, x0, 300",
+        "addi x5, x0, 324",
+        "sw x1, 0(x4)",
+        "sw x2, 16(x4)",
+        "sw x3, -12(x5)",
+        "lw x7, 0(x4)",
+        "lw x8, -12(x5)",
+        "lw x9, -8(x5)",
+    ])
+
+    $test("store, byte", [
+        "addi x1, x0, 100",
+        "addi x2, x0, 2000",
+        "addi x3, x0, -111",
+        "addi x4, x0, -44",
+        "addi x5, x0, 2001",
+        "sb x1, 0(x2)",
+        "sb x2, 0(x5)",
+        "sb x3, 2(x2)",
+        "sb x4, 3(x2)",
+        "lw x6, 0(x2)",
+        "sb x2, 1(x2)",
+        "lw x7, 0(x2)",
+        "sb x4, 2(x2)",
+        "lw x8, 0(x2)",
+        "sb x2, 2(x5)",
+        "lw x9, 0(x2)",
+        "sb x1, -1(x5)",
+        "lw x10, 0(x2)",
+    ])
+
+    $test("store, half", [
+        "addi x1, x0, 123",
+        "addi x2, x0, 999",
+        "addi x3, x0, 1000",
+        "addi x4, x0, 1999",
+        "sh x1, 0(x3)",
+        "sh x2, 1(x3)",
+        "lw x10, 0(x3)",
+        "sh x3, 2(x3)",
+        "lw x11, 0(x3)",
+        "sh x4, 3(x3)",
+        "lw x12, 0(x3)",
+        "lw x13, 4(x3)",
+        "sh x1, 7(x3)",
+        "sh x4, 5(x3)",
+        "lw x14, 4(x3)",
+    ])
+
+    $test("store, word misaligned", [
+        "addi x1, x0, 2000",
+        "li x2, 0xABCD1234",
+        "li x3, 0x90EF5678",
+        "li x4, 0xAAAABBBB",
+        "li x5, 0xCCCCDDDD",
+        "sw x4, 0(x1)",
+        "sw x5, 4(x1)",
+        "sw x2, 1(x1)",
+        "lw x10, 0(x1)",
+        "lw x11, 4(x1)",
+        "sw x3, 2(x1)",
+        "lw x12, 0(x1)",
+        "lw x13, 4(x1)",
+        "sw x2, 3(x1)",
+        "lw x14, 0(x1)",
+        "lw x15, 4(x1)",
+    ])
+
 end
 
 function selftest()
