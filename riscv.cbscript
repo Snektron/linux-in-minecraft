@@ -248,6 +248,63 @@ function op_imm()
     arith(x[rs1], imm)
 end
 
+function branch()
+    jump = 0
+    lhs = x[rs1]
+    rhs = x[rs2]
+    switch funct3
+        case 0x0
+            # BEQ
+            if lhs == rhs
+                jump = 1
+            end
+            handled = 1
+        end
+        case 0x1
+            # BNE
+            if lhs == rhs
+            else
+                jump = 1
+            end
+            handled = 1
+        end
+        case 0x4
+            # BLT
+            if lhs < rhs
+                jump = 1
+            end
+            handled = 1
+        end
+        case 0x5
+            # BGE
+            if lhs < rhs
+            else
+                jump = 1
+            end
+            handled = 1
+        end
+        case 0x6
+            # BLTU
+            if lhs - 2147483647 - 1 < rhs - 2147483647 - 1
+                jump = 1
+            end
+            handled = 1
+        end
+        case 0x7
+            # BGEU
+            if lhs - 2147483647 - 1 < rhs - 2147483647 - 1
+            else
+                jump = 1
+            end
+            handled = 1
+        end
+    end
+
+    if handled and jump
+        pc += imm - 4
+    end
+end
+
 # Execute one instruction
 function cycle()
     inst = memory_get(pc / 4)
@@ -273,6 +330,7 @@ function cycle()
         end
         case $"0b1100011"
             $btype("BRANCH")
+            branch()
         end
         case $"0b1101111"
             $jtype("JAL")

@@ -182,6 +182,30 @@ function test_arith()
         "jalr x0, x0, 1234",
         ".word 0",
     ])
+
+    $test("branch", [
+        "addi x1, x0, 123",
+        "add x2, x1, x0",
+        "beq x1, x2, l1",
+        ".word 0",
+        "l5:",
+        "bgeu x3, x0, l6",
+        ".word 0",
+        "l1:",
+        "bne x1, x0, l2",
+        ".word 0",
+        "l4:",
+        "bltu x1, x3, l5",
+        ".word 0",
+        "l2:",
+        "addi x3, x0, -10",
+        "blt x3, x1, l3",
+        ".word 0",
+        "l3:",
+        "bge x1, x3, l4",
+        ".word 0",
+        "l6:",
+    ])
 end
 
 function selftest()
