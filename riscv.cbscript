@@ -459,6 +459,18 @@ function cycle()
         end
         case $"0b1110011"
             $itype("SYSTEM")
+            switch imm
+                case 0x00
+                    # ecall
+                end
+                case 0x01
+                    # ebreak
+                    # Just dump the machine's state for this one
+                    tell @a "{Mebreak"
+                    machine_dump_state()
+                    handled = 1
+                end
+            end
         end
         case $"0b0101111"
             $rtype("ATOMIC")

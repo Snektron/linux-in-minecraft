@@ -41,9 +41,19 @@ pub fn main() !void {
     var state = std.mem.zeroes(c.MiniRV32IMAState);
 
     while (state.pc < len * 4) {
-        const result = c.MiniRV32IMAStep(&state, mem.ptr, 0, 0, 1);
-        if (result != 0) {
-            std.log.err("mini-rv32ima error: {}", .{ result });
+        const state_copy = state;
+        switch (c.MiniRV32IMAStep(&state, mem.ptr, 0, 0, 1)) {
+            0 => {
+                if (state.mcause == 3) {
+                    // ebreak, reset state and skip over it.
+                    state = state_copy;
+                    state.pc += 4;
+                }
+            },
+            else => |e| {
+                std.log.err("mini-rv32ima error: {}", .{e});
+                std.process.exit(1);
+            }
         }
     }
 
