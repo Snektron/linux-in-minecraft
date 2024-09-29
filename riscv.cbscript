@@ -7,6 +7,7 @@ import riscv.py
 import bit
 import memory
 import selftest
+import longmath
 
 $debug_decode = 0
 
@@ -183,11 +184,7 @@ function arith(lhs, rhs)
         end
         case 0x3
             # SLTU
-            # Note: lhs is still sign extended as usual
-            # Need to split the computation in 2 parts because minecraft can't
-            # parse -2147483648 (it tries to parse it as a positive int), or
-            # maybe cbscript just doesn't compile it correctly.
-            if lhs - 2147483647 - 1 < rhs - 2147483647 - 1
+            if lhs - INT_MIN < rhs - INT_MIN
                 res = 1
             else
                 res = 0
@@ -248,6 +245,70 @@ function op_imm()
     arith(x[rs1], imm)
 end
 
+function op_m()
+    lhs = x[rs1]
+    rhs = x[rs2]
+    switch funct3
+        case 0x0
+            # MUL
+            res = lhs * rhs
+            handled = 1
+        end
+        case 0x1
+            # MULH
+            mul64(lhs, rhs)
+            res = c1
+            handled = 1
+        end
+        case 0x2
+            # MULHSU
+            mul64su(lhs, rhs)
+            res = c1
+            handled = 1
+        end
+        case 0x3
+            # MULHU
+            mul64u(lhs, rhs)
+            res = c1
+            handled = 1
+        end
+        case 0x4
+            # DIV
+            if rhs == 0
+                res = -1
+            else if lhs == INT_MIN and rhs == -1
+                res = lhs
+            else
+                res = lhs / rhs
+            end
+
+            handled = 1
+        end
+        case 0x5
+            # DIVU
+        end
+        case 0x6
+            # REM
+            if rhs == 0
+                res = lhs
+            else if lhs == INT_MIN and rhs == -1
+                res = 0
+            else
+                res = lhs % rhs
+            end
+
+            handled = 1
+        end
+        case 0x7
+            # REMU
+        end
+    end
+
+    if handled and rd > 0
+        x[rd] = res
+    end
+end
+
 function branch()
     jump = 0
     lhs = x[rs1]
@@ -285,14 +346,14 @@ function branch()
         end
         case 0x6
             # BLTU
-            if lhs - 2147483647 - 1 < rhs - 2147483647 - 1
+            if lhs - INT_MIN < rhs - INT_MIN
                 jump = 1
             end
             handled = 1
         end
         case 0x7
             # BGEU
-            if lhs - 2147483647 - 1 < rhs - 2147483647 - 1
+            if lhs - INT_MIN < rhs - INT_MIN
             else
                 jump = 1
             end
@@ -405,7 +466,11 @@ function cycle()
     switch opcode
         case $"0b0110011"
             $rtype("OP")
-            op()
+            if funct7 == 0x01
+                op_m()
+            else
+                op()
+            end
         end
         case $"0b0010011"
             $itype("OP-IMM")
@@ -488,7 +553,15 @@ end
 reset
     tell @a "reset"
 
+    # For some reason the compiler / minecraft wont let us express this value, so
+    # we have to precompute it
+    INT_MIN = 0x40000000 + 0x40000000
+
     selftest()
+
+    # mul64(0x1234ABCD, 0x567890EF)
+
+    # tell @a "z0=(z0) z1=(z1)"
 
     tell @a "done"
 end

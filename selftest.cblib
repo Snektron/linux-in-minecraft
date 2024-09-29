@@ -328,6 +328,33 @@ function run_tests()
         "lw x13, -2(x31)",
         "lw x14, -1(x31)",
     ])
+
+    $test("mul", [
+        "li x1, 0xABCD1234",
+        "li x2, 0x90EF5678",
+        "mul x3, x1, x2",
+        "mulh x4, x1, x2",
+        "mulhu x5, x1, x2",
+        "mulhsu x6, x1, x2",
+        "li x1, 0xABCD1234",
+        "li x2, -1234",
+        "mul x7, x1, x2",
+        "mulh x8, x1, x2",
+        "mulhu x9, x1, x2",
+        "mulhsu x10, x1, x2",
+        "li x1, -10",
+        "li x2, -1234",
+        "mul x11, x1, x2",
+        "mulh x12, x1, x2",
+        "mulhu x13, x1, x2",
+        "mulhsu x14, x1, x2",
+        "li x1, -0x0011eeee",
+        "li x2, 0x00AAAAAA",
+        "mul x15, x1, x2",
+        "mulh x16, x1, x2",
+        "mulhu x17, x1, x2",
+        "mulhsu x18, x1, x2",
+    ])
 end
 
 function selftest()
