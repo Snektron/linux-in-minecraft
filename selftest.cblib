@@ -503,6 +503,36 @@ function run_tests()
         "remu x4, x4, x4",
         "remu x30, x0, x0",
     ])
+
+    $test("atomic", [
+        "li x1, 100000",
+        "li x2, 200000",
+        "li x3, -1234567",
+        "li x4, -10",
+        "sw x1, 0(x1)",
+        "amoswap.w x5, x2, (x1)",
+        "lw x5, 0(x1)",
+        "amoadd.w x6, x4, (x1)",
+        "lw x7, 0(x1)",
+        "amoand.w x8, x3, (x1)",
+        "lw x9, 0(x1)",
+        "amoor.w x10, x4, (x1)",
+        "lw x11, 0(x1)",
+        "amoxor.w x12, x3, (x1)",
+        "lw x13, 0(x1)",
+        "amomin.w x14, x4, (x1)",
+        "lw x15, 0(x1)",
+        "amomax.w x16, x3, (x1)",
+        "lw x17, 0(x1)",
+        "amomax.w x18, x2, (x1)",
+        "lw x19, 0(x1)",
+        "lr.w x20, (x1)",
+        "sc.w x21, x1, (x1)",
+        "sc.w x22, x1, (x2)",
+        "sc.w x23, x1, (x2)",
+        "sc.w x24, x1, (x1)",
+        "sc.w x25, x1, (x1)",
+    ])
 end
 
 function selftest()

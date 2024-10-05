@@ -19,10 +19,11 @@ function machine_reset()
     end
 
     memory_clear()
+    reserved = -1
 end
 
 function machine_dump_state()
-    tell @a "machine state: {wpc=(pc) {werror=(error)"
+    tell @a "machine state: {wpc=(pc) {werror=(error) {wreserved=(reserved)"
 
     x0 = x[0]
     x1 = x[1]
@@ -483,6 +484,93 @@ function store()
     end
 end
 
+function atomic()
+    funct5 = funct7 / 4
+    if funct3 == 0x2
+        # TODO: Misaligned address exception?
+        src = x[rs1]
+        lhs = memory_get(src / 4)
+        rhs = x[rs2]
+        write = 1
+        switch funct5
+            case 0x00
+                # atomic ADD
+                res = lhs + rhs
+                handled = 1
+            end
+            case 0x01
+                # atomic swap
+                res = rhs
+                handled = 1
+            end
+            case 0x02
+                # atomic load
+                # TODO: CSR stuff?
+                res = lhs
+                write = 0
+                handled = 1
+                # This implementation can apparently be fairly arbitrary: Allowing stores
+                # to be always successful seems correct behavior. However, we will be emulating
+                # mini-rv32ima here at least somewhat so that its easier to test whether the
+                # behavior is correct.
+                reserved = src
+            end
+            case 0x03
+                # atomic store (conditional)
+                # TODO: CSR stuff?
+                if reserved == src
+                    lhs = 0
+                else
+                    lhs = 1
+                    write = 0
+                end
+                handled = 1
+            end
+            case 0x04
+                # atomic XOR
+                res = bit_xor(lhs, rhs)
+                handled = 1
+            end
+            case 0x08
+                # atomic OR
+                res = bit_or(lhs, rhs)
+                handled = 1
+            end
+            case 0x0C
+                # atomic AND
+                res = bit_and(lhs, rhs)
+                handled = 1
+            end
+            case 0x10
+                # atomic MIN
+                if lhs < rhs
+                    res = lhs
+                else
+                    res = rhs
+                end
+                handled = 1
+            end
+            case 0x14
+                # atomic MAX
+                if lhs > rhs
+                    res = lhs
+                else
+                    res = rhs
+                end
+                handled = 1
+            end
+        end
+    end
+    if handled
+        if rd > 0
+            x[rd] = lhs
+        end
+        if write
+            memory_set(src / 4, res)
+        end
+    end
+end
+
 # Execute one instruction
 function cycle()
     inst = memory_get(pc / 4)
@@ -567,6 +655,7 @@ function cycle()
         end
         case $"0b0101111"
             $rtype("ATOMIC")
+            atomic()
         end
     end
 
