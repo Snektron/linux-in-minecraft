@@ -12,14 +12,16 @@ macro $test($test_name, $test_case)
     end
     len *= 4
 
-    while pc < len and not error
+    while pc < len and trap == 0
         cycle()
     end
 
     $expected = $run($program)
 
-    if error
+    error = 0
+    if trap
         tell @a "{Rmachine entered error state"
+        error = 1
     end
 
     if not error

@@ -13,7 +13,7 @@ $debug_decode = 0
 
 function machine_reset()
     pc = 0
-    error = 0
+    trap = 0
     for i = 0 to 32
         x[i] = 0
     end
@@ -23,7 +23,7 @@ function machine_reset()
 end
 
 function machine_dump_state()
-    tell @a "machine state: {wpc=(pc) {werror=(error) {wreserved=(reserved)"
+    tell @a "machine state: {wpc=(pc) {wtrap=(trap) {wreserved=(reserved)"
 
     x0 = x[0]
     x1 = x[1]
@@ -158,12 +158,12 @@ function arith(lhs, rhs)
                 case 0x00
                     # ADD
                     res = lhs + rhs
-                    handled = 1
+                    trap = 0
                 end
                 case 0x20
                     # SUB
                     res = lhs - rhs
-                    handled = 1
+                    trap = 0
                 end
             end
         end
@@ -171,7 +171,7 @@ function arith(lhs, rhs)
             # SLL
             if funct7 == 0x00
                 res = bit_sll(lhs, rhs % 32)
-                handled = 1
+                trap = 0
             end
         end
         case 0x2
@@ -181,7 +181,7 @@ function arith(lhs, rhs)
             else
                 res = 0
             end
-            handled = 1
+            trap = 0
         end
         case 0x3
             # SLTU
@@ -190,40 +190,40 @@ function arith(lhs, rhs)
             else
                 res = 0
             end
-            handled = 1
+            trap = 0
         end
         case 0x4
             # XORI
             res = bit_xor(lhs, rhs)
-            handled = 1
+            trap = 0
         end
         case 0x5
             switch funct7
                 case 0x00
                     # SRL
                     res = bit_srl(lhs, rhs % 32)
-                    handled = 1
+                    trap = 0
                 end
                 case 0x20
                     # SRA
                     res = bit_sra(lhs, rhs % 32)
-                    handled = 1
+                    trap = 0
                 end
             end
         end
         case 0x6
             # OR
             res = bit_or(lhs, rhs)
-            handled = 1
+            trap = 0
         end
         case 0x7
             # AND
             res = bit_and(lhs, rhs)
-            handled = 1
+            trap = 0
         end
     end
 
-    if handled and rd > 0
+    if trap == 0 and rd > 0
         x[rd] = res
     end
 end
@@ -253,25 +253,25 @@ function op_m()
         case 0x0
             # MUL
             res = lhs * rhs
-            handled = 1
+            trap = 0
         end
         case 0x1
             # MULH
             mul64(lhs, rhs)
             res = c1
-            handled = 1
+            trap = 0
         end
         case 0x2
             # MULHSU
             mul64su(lhs, rhs)
             res = c1
-            handled = 1
+            trap = 0
         end
         case 0x3
             # MULHU
             mul64u(lhs, rhs)
             res = c1
-            handled = 1
+            trap = 0
         end
         case 0x4
             # DIV
@@ -292,13 +292,13 @@ function op_m()
                 end
             end
 
-            handled = 1
+            trap = 0
         end
         case 0x5
             # DIVU
             udivmod(lhs, rhs)
             res = div
-            handled = 1
+            trap = 0
         end
         case 0x6
             # REM
@@ -323,17 +323,17 @@ function op_m()
                 end
             end
 
-            handled = 1
+            trap = 0
         end
         case 0x7
             # REMU
             udivmod(lhs, rhs)
             res = rem
-            handled = 1
+            trap = 0
         end
     end
 
-    if handled and rd > 0
+    if trap == 0 and rd > 0
         x[rd] = res
     end
 end
@@ -348,7 +348,7 @@ function branch()
             if lhs == rhs
                 jump = 1
             end
-            handled = 1
+            trap = 0
         end
         case 0x1
             # BNE
@@ -356,14 +356,14 @@ function branch()
             else
                 jump = 1
             end
-            handled = 1
+            trap = 0
         end
         case 0x4
             # BLT
             if lhs < rhs
                 jump = 1
             end
-            handled = 1
+            trap = 0
         end
         case 0x5
             # BGE
@@ -371,14 +371,14 @@ function branch()
             else
                 jump = 1
             end
-            handled = 1
+            trap = 0
         end
         case 0x6
             # BLTU
             if lhs - INT_MIN < rhs - INT_MIN
                 jump = 1
             end
-            handled = 1
+            trap = 0
         end
         case 0x7
             # BGEU
@@ -386,11 +386,11 @@ function branch()
             else
                 jump = 1
             end
-            handled = 1
+            trap = 0
         end
     end
 
-    if handled and jump
+    if trap == 0 and jump
         pc += imm - 4
     end
 end
@@ -405,7 +405,7 @@ function load()
             if res >= 0x80
                 res -= 0x100
             end
-            handled = 1
+            trap = 0
         end
         case 0x1
             # Load half, signed
@@ -415,7 +415,7 @@ function load()
             if res >= 0x8000
                 res -= 0x10000
             end
-            handled = 1
+            trap = 0
         end
         case 0x2
             # Load word
@@ -429,23 +429,23 @@ function load()
                 v3 = memory_load_u8(src + 3)
                 res = v3 * 0x1000000 + v2 * 0x10000 + v1 * 0x100 + v0
             end
-            handled = 1
+            trap = 0
         end
         case 0x4
             # Load byte, unsigned
             res = memory_load_u8(src)
-            handled = 1
+            trap = 0
         end
         case 0x5
             # Load half, unsigned
             v0 = memory_load_u8(src)
             v1 = memory_load_u8(src + 1)
             res = v1 * 0x100 + v0
-            handled = 1
+            trap = 0
         end
     end
 
-    if rd > 0 and handled
+    if rd > 0 and trap == 0
         x[rd] = res
     end
 end
@@ -458,14 +458,14 @@ function store()
         case 0x0
             # Byte store
             memory_store_u8(dst, val % 0x100)
-            handled = 1
+            trap = 0
         end
         case 0x1
             # Half store
             # TODO: Optimize
             memory_store_u8(dst, val % 0x100)
             memory_store_u8(dst + 1, val / 0x100 % 0x100)
-            handled = 1
+            trap = 0
         end
         case 0x2
             # Word store
@@ -479,7 +479,7 @@ function store()
                 memory_store_u8(dst + 2, val / 0x10000 % 0x100)
                 memory_store_u8(dst + 3, val / 0x1000000 % 0x100)
             end
-            handled = 1
+            trap = 0
         end
     end
 end
@@ -496,19 +496,19 @@ function atomic()
             case 0x00
                 # atomic ADD
                 res = lhs + rhs
-                handled = 1
+                trap = 0
             end
             case 0x01
                 # atomic swap
                 res = rhs
-                handled = 1
+                trap = 0
             end
             case 0x02
                 # atomic load
                 # TODO: CSR stuff?
                 res = lhs
                 write = 0
-                handled = 1
+                trap = 0
                 # This implementation can apparently be fairly arbitrary: Allowing stores
                 # to be always successful seems correct behavior. However, we will be emulating
                 # mini-rv32ima here at least somewhat so that its easier to test whether the
@@ -524,22 +524,22 @@ function atomic()
                     lhs = 1
                     write = 0
                 end
-                handled = 1
+                trap = 0
             end
             case 0x04
                 # atomic XOR
                 res = bit_xor(lhs, rhs)
-                handled = 1
+                trap = 0
             end
             case 0x08
                 # atomic OR
                 res = bit_or(lhs, rhs)
-                handled = 1
+                trap = 0
             end
             case 0x0C
                 # atomic AND
                 res = bit_and(lhs, rhs)
-                handled = 1
+                trap = 0
             end
             case 0x10
                 # atomic MIN
@@ -548,7 +548,7 @@ function atomic()
                 else
                     res = rhs
                 end
-                handled = 1
+                trap = 0
             end
             case 0x14
                 # atomic MAX
@@ -557,11 +557,11 @@ function atomic()
                 else
                     res = rhs
                 end
-                handled = 1
+                trap = 0
             end
         end
     end
-    if handled
+    if trap == 0
         if rd > 0
             x[rd] = lhs
         end
@@ -573,102 +573,110 @@ end
 
 # Execute one instruction
 function cycle()
+    unless pc % 4 == 0
+        # Misaligned PC
+        trap = 1 + 0
+    end
+
     inst = memory_get(pc / 4)
     # Opcode is low 7 bits
     opcode = inst % 128
     # tell @a "(pc): {winst=(inst) {wopcode=(opcode)"
 
-    handled = 0
-    switch opcode
-        case $"0b0110011"
-            $rtype("OP")
-            if funct7 == 0x01
-                op_m()
-            else
-                op()
-            end
-        end
-        case $"0b0010011"
-            $itype("OP-IMM")
-            op_imm()
-        end
-        case $"0b0000011"
-            $itype("LOAD")
-            load()
-        end
-        case $"0b0100011"
-            $stype("STORE")
-            store()
-        end
-        case $"0b1100011"
-            $btype("BRANCH")
-            branch()
-        end
-        case $"0b1101111"
-            $jtype("JAL")
-            if rd > 0
-                res = pc + 4
-                x[rd] = res
-            end
-            pc += imm - 4
-            handled = 1
-        end
-        case $"0b1100111"
-            $itype("JALR")
-            if rd > 0
-                res = pc + 4
-                x[rd] = res
-            end
-            pc = x[rs1] + imm - 4
-            handled = 1
-        end
-        case $"0b0110111"
-            $utype("LUI")
-            if rd > 0
-                res = imm * 0x1000
-                x[rd] = res
-            end
-            handled = 1
-        end
-        case $"0b0010111"
-            $utype("AUIPC")
-            if rd > 0
-                res = pc + imm * 0x1000
-                x[rd] = res
-            end
-            handled = 1
-        end
-        case $"0b1110011"
-            $itype("SYSTEM")
-            switch imm
-                case 0x00
-                    # ecall
-                end
-                case 0x01
-                    # ebreak
-                    # Just dump the machine's state for this one
-                    tell @a "{Mebreak"
-                    machine_dump_state()
-                    handled = 1
+    # Configure trap to invalid instruction by default. Instructions clear trap if they are handled properly.
+    if trap == 0
+        trap = 2 + 1
+        switch opcode
+            case $"0b0110011"
+                $rtype("OP")
+                if funct7 == 0x01
+                    op_m()
+                else
+                    op()
                 end
             end
-        end
-        case $"0b0101111"
-            $rtype("ATOMIC")
-            atomic()
-        end
-        case $"0b001111"
-            $itype("FENCE")
-            # NO-OP on this architecture
-            if funct3 == 1
-                handled = 1
+            case $"0b0010011"
+                $itype("OP-IMM")
+                op_imm()
+            end
+            case $"0b0000011"
+                $itype("LOAD")
+                load()
+            end
+            case $"0b0100011"
+                $stype("STORE")
+                store()
+            end
+            case $"0b1100011"
+                $btype("BRANCH")
+                branch()
+            end
+            case $"0b1101111"
+                $jtype("JAL")
+                if rd > 0
+                    res = pc + 4
+                    x[rd] = res
+                end
+                pc += imm - 4
+                trap = 0
+            end
+            case $"0b1100111"
+                $itype("JALR")
+                if rd > 0
+                    res = pc + 4
+                    x[rd] = res
+                end
+                pc = x[rs1] + imm - 4
+                trap = 0
+            end
+            case $"0b0110111"
+                $utype("LUI")
+                if rd > 0
+                    res = imm * 0x1000
+                    x[rd] = res
+                end
+                trap = 0
+            end
+            case $"0b0010111"
+                $utype("AUIPC")
+                if rd > 0
+                    res = pc + imm * 0x1000
+                    x[rd] = res
+                end
+                trap = 0
+            end
+            case $"0b1110011"
+                $itype("SYSTEM")
+                switch imm
+                    case 0x00
+                        # ecall
+                    end
+                    case 0x01
+                        # ebreak
+                        # Just dump the machine's state for this one
+                        tell @a "{Mebreak"
+                        machine_dump_state()
+                        trap = 0
+                    end
+                end
+            end
+            case $"0b0101111"
+                $rtype("ATOMIC")
+                atomic()
+            end
+            case $"0b001111"
+                $itype("FENCE")
+                # NO-OP on this architecture
+                if funct3 == 1
+                    trap = 0
+                end
             end
         end
     end
 
-    unless handled
-        tell @a "{Runhandled instruction {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
-        error = 1
+    if trap
+        # TODO: Set machine state?
+        tell @a "{Rerror trap={w(trap) {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
     else
         pc += 4
     end
@@ -682,10 +690,6 @@ reset
     INT_MIN = 0x40000000 + 0x40000000
 
     selftest()
-
-    # mul64(0x1234ABCD, 0x567890EF)
-
-    # tell @a "z0=(z0) z1=(z1)"
 
     tell @a "done"
 end
