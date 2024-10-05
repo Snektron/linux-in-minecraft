@@ -41,6 +41,7 @@ function machine_reset()
 
     # In extraflags in mini-rv32ima
     reserved = -1
+    wfi = 0
 
     for i = 0 to 32
         x[i] = 0
@@ -704,19 +705,47 @@ function csr()
 end
 
 # Execute one instruction
-function execute()
-    unless pc % 4 == 0
-        # Misaligned PC
-        trap = 1 + 0
+function execute(elapsed_us)
+    # Configure trap to invalid instruction by default. Instructions clear trap if they are handled properly.
+    trap = 0
+
+    # Increment timer
+    new_timer = timerl + elapsed_us
+    if new_timer - INT_MIN < timerl - INT_MIN
+        timerh++
+    end
+    timerl = new_timer
+
+    # Handle timer interrupt
+    timerint = 0
+    if timerh - INT_MIN < timermatchh - INT_MIN
+    else if timerh == timermatchh and timerl - INT_MIN < timermatchl - INT_MIN
+    else if timermatchh == 0 and timermatchl == 0
+    else
+        timerint = 1
     end
 
-    inst = memory_get(pc / 4)
-    # Opcode is low 7 bits
-    opcode = inst % 128
-    # tell @a "(pc): {winst=(inst) {wopcode=(opcode)"
+    miph = mip / 256
+    mipl = mip % 128
+    if timerint
+        mip = miph * 256 + mipl + 128
+        wfi = 0
+    else
+        mip = miph * 256 + mipl
+    end
 
-    # Configure trap to invalid instruction by default. Instructions clear trap if they are handled properly.
-    if trap == 0
+    # Handle WFI
+    if trap == 0 and wfi
+        # Just do nothing
+    else unless pc % 4 == 0
+        # Misaligned PC
+        trap = 1 + 0
+    else if trap == 0
+        inst = memory_get(pc / 4)
+        # Opcode is low 7 bits
+        opcode = inst % 128
+        # tell @a "(pc): {winst=(inst) {wopcode=(opcode)"
+
         trap = 2 + 1
         switch opcode
             case $"0b0110011"
@@ -792,6 +821,15 @@ function execute()
                             machine_dump_state()
                             trap = 0
                         end
+                        case 0x105
+                            # WFI
+                            if mstatus % 16 < 8
+                                mstatus += 8
+                            end
+                            wfi = 1
+                            pc += 4
+                            trap = 0
+                        end
                     end
                 else if funct3 == 4
                 else
@@ -815,7 +853,7 @@ function execute()
     if trap
         # TODO: Set machine state?
         tell @a "{Rerror trap={w(trap) {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
-    else
+    else unless wfi
         pc += 4
         cyclel++
         if cyclel == 0

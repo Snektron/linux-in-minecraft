@@ -9,6 +9,11 @@ pub fn main() !void {
     defer std.heap.page_allocator.free(mem);
     @memset(mem, 0);
 
+    var args = std.process.args();
+    _ = args.next();
+    const timermatchl = try std.fmt.parseInt(i32, args.next() orelse return error.MissingArg, 10);
+    const timermatchh = try std.fmt.parseInt(i32, args.next() orelse return error.MissingArg, 10);
+
     const stdin = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
 
@@ -39,10 +44,12 @@ pub fn main() !void {
     }
 
     var state = std.mem.zeroes(c.MiniRV32IMAState);
+    state.timermatchl = @bitCast(timermatchl);
+    state.timermatchh = @bitCast(timermatchh);
 
     while (state.pc < len * 4) {
         const state_copy = state;
-        switch (c.MiniRV32IMAStep(&state, mem.ptr, 0, 0, 1)) {
+        switch (c.MiniRV32IMAStep(&state, mem.ptr, 0, 1, 1)) {
             0 => {
                 if (state.mcause == 3) {
                     // ebreak, reset state and skip over it.
@@ -51,8 +58,12 @@ pub fn main() !void {
                 }
             },
             else => |e| {
-                std.log.err("mini-rv32ima error: {}", .{e});
-                std.process.exit(1);
+                if (state.extraflags & 0x4 != 0) {
+                    // WFI, ignore
+                } else {
+                    std.log.err("mini-rv32ima error: {}", .{e});
+                    std.process.exit(1);
+                }
             }
         }
     }

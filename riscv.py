@@ -74,10 +74,10 @@ def assemble(inp, test = False):
 
         return values
 
-def run(binary):
+def run(binary, timermatchl, timermatchh):
     import subprocess
     stdin = '\n'.join([str(v) for v in binary]) + '\nend\n'
-    result = subprocess.run(["zig", "build", "run"], input=stdin, text=True, capture_output=True)
+    result = subprocess.run(["zig", "build", "run", "--", str(timermatchl), str(timermatchh)], input=stdin, text=True, capture_output=True)
     if len(result.stderr) > 0:
         print(result.stderr)
     if result.returncode != 0:

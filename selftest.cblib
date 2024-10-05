@@ -3,6 +3,9 @@ macro $test($test_name, $test_case)
 
     machine_reset()
 
+    timermatchl = $test_timermatchl
+    timermatchh = $test_timermatchh
+
     $program = $assemble($test_case)
     len = 0
     for $inst in $program
@@ -13,10 +16,10 @@ macro $test($test_name, $test_case)
     len *= 4
 
     while pc < len and trap == 0
-        execute()
+        execute(1)
     end
 
-    $expected = $run($program)
+    $expected = $run($program, $test_timermatchl, $test_timermatchh)
 
     error = 0
     if trap
@@ -58,6 +61,9 @@ macro $test($test_name, $test_case)
 end
 
 function run_tests()
+    $test_timermatchl = 0
+    $test_timermatchh = 0
+
     $test("add, sub, addi", [
         "addi x1, x0, 1000",
         "addi x2, x0, -1234",
@@ -557,6 +563,16 @@ function run_tests()
         "csrrw x11, mscratch, x0",
         "csrrw x12, mcycle, x0",
     ])
+
+    # The timer
+    $test_timermatchh = 0
+    $test_timermatchl = 10
+    $test("timer interrupt", [
+        "wfi",
+        "li x1, 123",
+    ])
+    $test_timermatchh = 0
+    $test_timermatchl = 0
 end
 
 function selftest()
