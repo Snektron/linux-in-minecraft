@@ -13,7 +13,7 @@ macro $test($test_name, $test_case)
     len *= 4
 
     while pc < len and trap == 0
-        cycle()
+        execute()
     end
 
     $expected = $run($program)
@@ -538,6 +538,24 @@ function run_tests()
 
     $test("fence.i", [
         "fence.i",
+    ])
+
+    # We can't test all registers reliably, but we can at least use
+    # mscratch to test the operations. mcycle should also correspond.
+    # The others arent too useful to test here.
+    $test("csr", [
+        "li x1, 0xAABBCCDD",
+        "li x2, 0xFF001FF",
+        "csrrw x3, mscratch, x1",
+        "csrrs x4, mscratch, x2",
+        "csrrw x5, mscratch, x0",
+        "csrrw x6, mscratch, x1",
+        "csrrc x7, mscratch, x2",
+        "csrrwi x8, mscratch, 12",
+        "csrrsi x9, mscratch, 0x1A",
+        "csrrci x10, mscratch, 0x3",
+        "csrrw x11, mscratch, x0",
+        "csrrw x12, mcycle, x0",
     ])
 end
 

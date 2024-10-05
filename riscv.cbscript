@@ -14,12 +14,39 @@ $debug_decode = 0
 function machine_reset()
     pc = 0
     trap = 0
+
+    # The supported csr registers are all mostly taken from mini-rv32ima
+    # See also https://raw.githubusercontent.com/riscv/virtual-memory/main/specs/663-Svpbmt.pdf
+    mstatus = 0
+    cyclel = 0
+    cycleh = 0
+
+    timerl = 0
+    timerh = 0
+    timermatchl = 0
+    timermatchh = 0
+
+    mscratch = 0
+    mtvec = 0
+    mie = 0
+    mip = 0
+
+    mepc = 0
+    mtval = 0
+    mcause = 0
+
+    # TODO: This seems to be custom. Do we actually need this ever? Otherwise
+    # we will just split it up across separate words for ease of access
+    extraflags = 0
+
+    # In extraflags in mini-rv32ima
+    reserved = -1
+
     for i = 0 to 32
         x[i] = 0
     end
 
     memory_clear()
-    reserved = -1
 end
 
 function machine_dump_state()
@@ -571,8 +598,113 @@ function atomic()
     end
 end
 
+function csr()
+    lhs = x[rs1]
+    imm %= 2048 # Make CSR number unsigned
+
+    csrval = 0
+    switch imm
+        case 0x340
+            csrval = mscratch
+        end
+        case 0x305
+            csrval = mtvec
+        end
+        case 0x304
+            csrval = mie
+        end
+        case 0xC00
+            csrval = cyclel
+        end
+        case 0x344
+            csrval = mip
+        end
+        case 0x341
+            csrval = mepc
+        end
+        case 0x300
+            csrval = mstatus
+        end
+        case 0x342
+            csrval = mcause
+        end
+        case 0x343
+            csrval = mtval
+        end
+        case 0xf11
+            # mvendorid
+            csrval = 0
+        end
+        case 0x301
+            # misa
+            # Just copied from mini-rv32ima
+            csrval = 0x40401101
+        end
+    end
+
+    switch funct3
+        case 0x01
+            # CSRRW
+            res = lhs
+        end
+        case 0x02
+            # CSRRS
+            res = bit_or(csrval, lhs)
+        end
+        case 0x03
+            # CSRRC
+            res = bit_and(csrval, -1 - lhs)
+        end
+        case 0x05
+            # CSRWI
+            res = rs1
+        end
+        case 0x06
+            # CSRRSI
+            res = bit_or(csrval, rs1)
+        end
+        case 0x07
+            # CSRRCI
+            res = bit_and(csrval, -1 - rs1)
+        end
+    end
+
+    switch imm
+        case 0x340
+            mscratch = res
+        end
+        case 0x305
+            mtvec = res
+        end
+        case 0x304
+            mie = res
+        end
+        case 0x344
+            mip = res
+        end
+        case 0x341
+            mepc = res
+        end
+        case 0x300
+            mstatus = res
+        end
+        case 0x342
+            mcause = res
+        end
+        case 0x343
+            mtval = res
+        end
+    end
+
+    if rd > 0
+        x[rd] = csrval
+    end
+
+    trap = 0
+end
+
 # Execute one instruction
-function cycle()
+function execute()
     unless pc % 4 == 0
         # Misaligned PC
         trap = 1 + 0
@@ -647,17 +779,23 @@ function cycle()
             end
             case $"0b1110011"
                 $itype("SYSTEM")
-                switch imm
-                    case 0x00
-                        # ecall
+                if funct3 == 0
+                    switch imm
+                        case 0x00
+                            # ecall
+                            # TODO
+                        end
+                        case 0x01
+                            # ebreak
+                            # Just dump the machine's state for this one
+                            tell @a "{Mebreak"
+                            machine_dump_state()
+                            trap = 0
+                        end
                     end
-                    case 0x01
-                        # ebreak
-                        # Just dump the machine's state for this one
-                        tell @a "{Mebreak"
-                        machine_dump_state()
-                        trap = 0
-                    end
+                else if funct3 == 4
+                else
+                    csr()
                 end
             end
             case $"0b0101111"
@@ -679,6 +817,10 @@ function cycle()
         tell @a "{Rerror trap={w(trap) {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
     else
         pc += 4
+        cyclel++
+        if cyclel == 0
+            cycleh++
+        end
     end
 end
 
