@@ -56,3 +56,67 @@ end
 function mul64su(a, b)
     mul64_next(0, 0x10000, 0, 0x10000)
 end
+
+function udivmod(a, b)
+    if b == 0
+        div = -1
+        rem = a
+    else if a == 0
+        # Filter out trivial case
+        div = 0
+        rem = 0
+    else if a == b
+        # Filter out trivial case
+        div = 1
+        rem = 0
+    else if b < 0
+        # If b < 0, that means that unsigned(b) >= 2**31
+        # There are 4 cases:
+        # - If a == b, the result is 1
+        # - unsigned(a) < unsigned(b). The division is 0. Note: in this
+        #   case a could be positive, but the condition still holds. Since
+        #   unsigned(a) < unsigned(b), the remainder is just a.
+        # - unsigned(a) > unsigned(b). The division is 1. In this situation
+        #   2**31 <= unsinged(b) < unsigned(a) < 2**32, so the remainder is
+        #   given by a - b.
+        if a - INT_MIN < b - INT_MIN
+            div = 0
+            rem = a
+        else
+            div = 1
+            rem = a - b
+        end
+    else if a >= 0
+        # We have 0 <= a, unsigned(a) < 2**31 and 0 < b, unsigned(b) < 2**31, so we can
+        # perform normal divison
+        div = a / b
+        rem = a % b
+    else
+        # The tricky case
+        # We have unsigned(a) >= 2**31 and 0 < b, unsigned(b) < 2**31. We will do
+        # one round of
+
+        # Do the first iteration of long division to make the result positive.
+        # First, find the the largest multiple of b where b < unsigned(a). We will
+        # do that by first doubling b until its negative and then checking whether b < a.
+
+        b_scaled = b
+        multiple = 1
+        cnt = 0
+        while b_scaled > 0
+            b_scaled *= 2
+            multiple *= 2
+            cnt += 1
+        end
+
+        # Remove scaled b from a to make a positive
+        a -= b_scaled
+
+        # Now we can just perform the normal division, and then add the multiple to it
+        div = a / b
+        div += multiple
+
+        # b_scaled is a multiple of b, so we don't need to account for it here.
+        rem = a % b
+    end
+end
