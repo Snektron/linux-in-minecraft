@@ -657,6 +657,13 @@ function cycle()
             $rtype("ATOMIC")
             atomic()
         end
+        case $"0b001111"
+            $itype("FENCE")
+            # NO-OP on this architecture
+            if funct3 == 1
+                handled = 1
+            end
+        end
     end
 
     unless handled

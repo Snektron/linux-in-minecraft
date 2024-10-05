@@ -533,6 +533,10 @@ function run_tests()
         "sc.w x24, x1, (x1)",
         "sc.w x25, x1, (x1)",
     ])
+
+    $test("fence.i", [
+        "fence.i",
+    ])
 end
 
 function selftest()
