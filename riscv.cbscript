@@ -12,7 +12,15 @@ import longmath
 $debug_decode = 0
 
 function machine_reset()
-    pc = 0
+    # All memory is offset by 0x8000_0000
+    # The linux image seems built this way (?) and mini-rv32ima does it too...
+    RAM_OFFSET = INT_MIN
+    # Total number of words, each cell holds 1 32-bit word
+    RAM_MAX_WORDS = 256 * 256 * 256
+    # Total number of bytes
+    RAM_MAX = RAM_MAX_WORDS * 4
+
+    pc = RAM_OFFSET
     trap = 0
 
     # The supported csr registers are all mostly taken from mini-rv32ima
@@ -425,7 +433,7 @@ function branch()
 end
 
 function load()
-    src = x[rs1] + imm
+    src = x[rs1] + imm - RAM_OFFSET
     switch funct3
         case 0x0
             # Load byte, signed
@@ -480,7 +488,7 @@ function load()
 end
 
 function store()
-    dst = x[rs1] + imm
+    dst = x[rs1] + imm - RAM_OFFSET
     val = x[rs2]
 
     switch funct3
@@ -517,7 +525,7 @@ function atomic()
     funct5 = funct7 / 4
     if funct3 == 0x2
         # TODO: Misaligned address exception?
-        src = x[rs1]
+        src = x[rs1] - RAM_OFFSET
         lhs = memory_get(src / 4)
         rhs = x[rs2]
         write = 1
@@ -746,10 +754,11 @@ function execute(elapsed_us)
         # Misaligned PC
         trap = 1 + 0
     else if trap == 0
-        inst = memory_get(pc / 4)
+        pcoff = pc - RAM_OFFSET
+        inst = memory_get(pcoff / 4)
         # Opcode is low 7 bits
         opcode = inst % 128
-        # tell @a "(pc): {winst=(inst) {wopcode=(opcode)"
+        # tell @a "(pcoff): {winst=(inst) {wopcode=(opcode)"
 
         trap = 2 + 1
         switch opcode
@@ -793,6 +802,7 @@ function execute(elapsed_us)
                     x[rd] = res
                 end
                 pc = x[rs1] + imm - 4
+                pcoff = pc - RAM_OFFSET + 4
                 trap = 0
             end
             case $"0b0110111"

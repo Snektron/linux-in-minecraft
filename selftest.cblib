@@ -15,13 +15,21 @@ macro $test($test_name, $test_case)
     end
     len *= 4
 
-    while pc < len and trap == 0
+    watchdog = 100
+    while pc - INT_MIN >= RAM_OFFSET - INT_MIN and pc - RAM_OFFSET - INT_MIN < len - INT_MIN and trap == 0 and watchdog >= 0
+        watchdog--
         execute(1)
     end
 
     $expected = $run($program, $test_timermatchl, $test_timermatchh)
 
     error = 0
+
+    if watchdog < 0
+        tell @a "{Rinfinite loop"
+        error = 1
+    end
+
     if trap
         tell @a "{Rmachine entered error state"
         error = 1
@@ -174,21 +182,22 @@ function run_tests()
         ".word 0",
         "l3:",
         "jal x0, 1000",
+        ".word 0",
         "l1:",
         "jal x2, l2",
         ".word 0",
     ])
 
     $test("jalr", [
-        "add x1, x0, 20",
-        "jalr x2, x1, 0",
-        ".word 0",
-        "jalr x4, x1, 8",
-        ".word 0",
-        "jalr x3, x1, -8",
-        ".word 0",
-        "jalr x0, x0, 1234",
-        ".word 0",
+        "li x1, 0x80000018 # 0",
+        "jalr x2, x1, 0    # 8",
+        ".word 0           # 12",
+        "jalr x4, x1, 8    # 16",
+        ".word 0           # 20",
+        "jalr x3, x1, -8   # 24",
+        ".word 0           # 28",
+        "jalr x0, x0, 1236 # 32",
+        ".word 0           # 36",
     ])
 
     $test("branch", [
@@ -216,11 +225,11 @@ function run_tests()
     ])
 
     $test("load and store, word aligned", [
-        "addi x1, x0, 123",
-        "addi x2, x0, 456",
-        "addi x3, x0, -555",
-        "addi x4, x0, 300",
-        "addi x5, x0, 324",
+        "li x1, 123",
+        "li x2, 456",
+        "li x3, -555",
+        "li x4, 0x80000300",
+        "li x5, 0x80000318",
         "sw x1, 0(x4)",
         "sw x2, 16(x4)",
         "sw x3, -12(x5)",
@@ -230,11 +239,11 @@ function run_tests()
     ])
 
     $test("store, byte", [
-        "addi x1, x0, 100",
-        "addi x2, x0, 2000",
-        "addi x3, x0, -111",
-        "addi x4, x0, -44",
-        "addi x5, x0, 2001",
+        "li x1, 100",
+        "li x2, 0x80002000",
+        "li x3, -111",
+        "li x4, -44",
+        "li x5, 0x80002001",
         "sb x1, 0(x2)",
         "sb x2, 0(x5)",
         "sb x3, 2(x2)",
@@ -251,10 +260,10 @@ function run_tests()
     ])
 
     $test("store, half", [
-        "addi x1, x0, 123",
-        "addi x2, x0, 999",
-        "addi x3, x0, 1000",
-        "addi x4, x0, 1999",
+        "li x1, 123",
+        "li x2, 999",
+        "li x3, 0x80001000",
+        "li x4, 1999",
         "sh x1, 0(x3)",
         "sh x2, 1(x3)",
         "lw x10, 0(x3)",
@@ -269,7 +278,7 @@ function run_tests()
     ])
 
     $test("store, word misaligned", [
-        "addi x1, x0, 2000",
+        "li x1, 0x80002000",
         "li x2, 0xABCD1234",
         "li x3, 0x90EF5678",
         "li x4, 0xAAAABBBB",
@@ -288,8 +297,8 @@ function run_tests()
     ])
 
     $test("load, byte", [
-        "addi x1, x0, 500",
-        "addi x31, x0, 509",
+        "li x1, 0x80000500",
+        "li x31, 0x80000509",
         "li x2, 0x01234567",
         "li x3, 0x89ABCDEF",
         "sw x4, 0(x1)",
@@ -306,8 +315,8 @@ function run_tests()
     ])
 
     $test("load, half", [
-        "addi x1, x0, 500",
-        "addi x31, x0, 509",
+        "li x1, 0x80000500",
+        "li x31, 0x80000509",
         "li x2, 0x01234567",
         "li x3, 0x89ABCDEF",
         "lhu x6, 0(x1)",
@@ -322,8 +331,8 @@ function run_tests()
     ])
 
     $test("load, word misaligned", [
-        "addi x1, x0, 500",
-        "addi x31, x0, 509",
+        "li x1, 0x80000500",
+        "li x31, 0x80000509",
         "li x2, 0x01234567",
         "li x3, 0x89ABCDEF",
         "lw x6, 0(x1)",
@@ -513,8 +522,8 @@ function run_tests()
     ])
 
     $test("atomic", [
-        "li x1, 100000",
-        "li x2, 200000",
+        "li x1, 0x80100000",
+        "li x2, 0x80200000",
         "li x3, -1234567",
         "li x4, -10",
         "sw x1, 0(x1)",

@@ -46,8 +46,9 @@ pub fn main() !void {
     var state = std.mem.zeroes(c.MiniRV32IMAState);
     state.timermatchl = @bitCast(timermatchl);
     state.timermatchh = @bitCast(timermatchh);
+    state.pc = c.MINIRV32_RAM_IMAGE_OFFSET;
 
-    while (state.pc < len * 4) {
+    while (state.pc >= c.MINIRV32_RAM_IMAGE_OFFSET and (state.pc - c.MINIRV32_RAM_IMAGE_OFFSET) < len * 4) {
         const state_copy = state;
         switch (c.MiniRV32IMAStep(&state, mem.ptr, 0, 1, 1)) {
             0 => {
