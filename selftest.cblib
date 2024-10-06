@@ -573,7 +573,6 @@ function run_tests()
         "csrrw x12, mcycle, x0",
     ])
 
-    # The timer
     $test_timermatchh = 0
     $test_timermatchl = 10
     $test("timer interrupt", [
@@ -582,6 +581,18 @@ function run_tests()
     ])
     $test_timermatchh = 0
     $test_timermatchl = 0
+
+    $test("mmio", [
+        "li x1, 0x10000000",
+        "li x2, 't'",
+        "sw x2, 0(x1)",
+        "li x2, 'e'",
+        "sw x2, 0(x1)",
+        "li x2, 's'",
+        "sw x2, 0(x1)",
+        "li x2, 't'",
+        "sw x2, 0(x1)",
+    ])
 end
 
 function selftest()

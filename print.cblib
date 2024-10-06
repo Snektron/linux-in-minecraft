@@ -1,0 +1,56 @@
+$MAX_LINE = 53
+array linebuffer[$MAX_LINE]
+
+function print_reset()
+    lineoffset = 0
+    for $i in $range($MAX_LINE)
+        linebuffer[$i] = 0
+    end
+end
+
+function print_int_to_char(value)
+    /data modify storage riscv:global printchar set value "?"
+    switch value
+        case $i in $range(128)
+            $c = $print_char_json_escape($i)
+            /data modify storage riscv:global printchar set value "$c"
+        end
+    end
+end
+
+function putc(char)
+    if char == 10
+        # Newline, don't print it, just flush the line
+        flush()
+    else
+        linebuffer[lineoffset] = char
+        lineoffset += 1
+
+        if lineoffset == $MAX_LINE
+            flush()
+        end
+    end
+end
+
+function flush()
+    # Don't print empty lines
+    if lineoffset > 0
+        for $i in $range($MAX_LINE)
+            char = linebuffer[$i]
+            print_int_to_char(char)
+            # Manually set the macro value
+            /data modify storage riscv:global args.line$i set from storage riscv:global printchar
+        end
+
+        # Use this 'with' block to get cbscript to apply the 'args' macros
+        # to the block below
+        with
+            $(dummy) = 0
+        do
+            $printstring = $"''.join([f'$(line{i})' for i in range(MAX_LINE)])"
+            /tellraw @a {"text":"$printstring"}
+        end
+
+        print_reset()
+    end
+end

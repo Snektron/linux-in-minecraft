@@ -8,6 +8,7 @@ import bit
 import memory
 import selftest
 import longmath
+import print
 
 $debug_decode = 0
 
@@ -19,6 +20,12 @@ function machine_reset()
     RAM_MAX_WORDS = 256 * 256 * 256
     # Total number of bytes
     RAM_MAX = RAM_MAX_WORDS * 4
+
+    # Note: These addresses are in the virtual address space
+    # MMIO is only considered with aligned, non-atomic reads and writes.
+    # This is the same as in mini-rv32ima.
+    MMIO_LOW = 0x10000000
+    MMIO_HIGH = 0x12000000
 
     pc = RAM_OFFSET
     trap = 0
@@ -57,6 +64,7 @@ function machine_reset()
     end
 
     memory_clear()
+    print_reset()
 end
 
 function machine_dump_state()
@@ -185,6 +193,38 @@ macro $jtype($class)
 
     if $debug_decode
         tell @a "(pc): (inst) $class jtype {wopcode=(opcode) {wrd=x(rd) {wimm=(imm)"
+    end
+end
+
+function mmio_load(addr)
+    switch addr
+        case 0x1100bffc
+            return timerh
+        end
+        case 0x1100bff8
+            return timerl
+        end
+    end
+    return 0
+end
+
+function mmio_store(addr, val)
+    switch addr
+        case 0x10000000
+            # UART
+            putc(val)
+            flush() # TODO: Remove and use natural line buffer, this is just for testing
+        end
+        case 0x11004004
+            timermatchh = val
+        end
+        case 0x11004000
+            timermatchl = val
+        end
+        case 0x11100000
+            # I don't think this will be used ever
+            tell @a "{wSYSCON: (val)"
+        end
     end
 end
 
@@ -458,7 +498,11 @@ function load()
             # Load word
             # Happy path: aligned word load
             if src % 4 == 0
-                res = memory_get(src / 4)
+                if src - INT_MIN >= RAM_MAX - INT_MIN
+                    res = mmio_load(src + RAM_OFFSET)
+                else
+                    res = memory_get(src / 4)
+                end
             else
                 v0 = memory_load_u8(src)
                 v1 = memory_load_u8(src + 1)
@@ -506,9 +550,13 @@ function store()
         end
         case 0x2
             # Word store
+            # Happy path: aligned word store
             if dst % 4 == 0
-                # Happy path: aligned word store
-                memory_set(dst / 4, val)
+                if dst - INT_MIN >= RAM_MAX - INT_MIN
+                    mmio_store(dst + RAM_OFFSET, val)
+                else
+                    memory_set(dst / 4, val)
+                end
             else
                 # TODO: Optimize
                 memory_store_u8(dst, val % 0x100)
@@ -919,7 +967,6 @@ function execute(elapsed_us)
             mepc = pc
             pc = mtvec - 4
         end
-
     end
 
     unless wfi

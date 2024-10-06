@@ -86,6 +86,23 @@ def run(binary, timermatchl, timermatchh):
     registers = [value - 2**32 if value >= 2**31 else value for value in registers]
     return registers
 
+def print_char_json_escape(i):
+    if i == ord('@'):
+        # For some reason @ doesn't work
+        return '?'
+    elif i == ord('\t'):
+        return '    '
+    elif i == ord('\\'):
+        return '\\\\\\\\' # The Elder Backslash...
+    elif i == ord('"'):
+        return '\\\\\\"'
+    elif i < 32:
+        # Just don't print all of these
+        return ''
+    elif i <= 127:
+        return chr(i)
+    return '?'
+
 if __name__ == '__main__':
     print(assemble([
         "addi x1, x0, 123",
