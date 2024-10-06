@@ -3,16 +3,16 @@ $emptypage = $"[0] * 0x100"
 $ramsize = $pagesize ** 3
 
 function memory_clear()
-    /data modify storage mem tmp1 set value $emptypage
-    /data modify storage mem tmp2 set value []
+    /data modify storage memory:mem tmp1 set value $emptypage
+    /data modify storage memory:mem tmp2 set value []
 
-    for i = 0 to $pagesize
-        /data modify storage mem tmp2 append from storage mem tmp1
+    for $i in $range($pagesize)
+        /data modify storage memory:mem tmp2 append from storage memory:mem tmp1
     end
 
-    /data modify storage mem mem set value []
-    for i = 0 to $pagesize
-        /data modify storage mem mem append from storage mem tmp2
+    /data modify storage memory:mem mem set value []
+    for $i in $range($pagesize)
+        /data modify storage memory:mem mem append from storage memory:mem tmp2
     end
 end
 
@@ -22,25 +22,25 @@ function memory_get(addr)
     # Index the first level
     switch addr / ($pagesize * $pagesize)
         case $addr in $range($pagesize)
-            /data modify storage mem tmp set from storage mem mem[$addr]
+            /data modify storage memory:mem tmp set from storage memory:mem mem[$addr]
         end
     end
 
     # first level is now in tmp, index into the second level
     switch addr / $pagesize % $pagesize
         case $addr in $range($pagesize)
-            /data modify storage mem tmp set from storage mem tmp[$addr]
+            /data modify storage memory:mem tmp set from storage memory:mem tmp[$addr]
         end
     end
 
     # second level is now in tmp, index into the third level to get the final value
     switch addr % $pagesize
         case $addr in $range($pagesize)
-            /data modify storage mem tmp set from storage mem tmp[$addr]
+            /data modify storage memory:mem tmp set from storage memory:mem tmp[$addr]
         end
     end
 
-    /execute store result score Global _result run data get storage mem tmp
+    /execute store result score Global _result run data get storage memory:mem tmp
     return _result
 end
 
@@ -48,40 +48,40 @@ end
 function memory_set(addr, value)
     # TODO: Caching system
     # Convert value from scoreboard value to storage value
-    /execute store result storage mem tmp int 1 run scoreboard players get Global value
+    /execute store result storage memory:mem tmp int 1 run scoreboard players get Global value
 
     # Index the first level
     switch addr / ($pagesize * $pagesize)
         case $addr in $range($pagesize)
-            /data modify storage mem tmp1 set from storage mem mem[$addr]
+            /data modify storage memory:mem tmp1 set from storage memory:mem mem[$addr]
         end
     end
 
     # first level is now in tmp1, index into the second level
     switch addr / $pagesize % $pagesize
         case $addr in $range($pagesize)
-            /data modify storage mem tmp2 set from storage mem tmp1[$addr]
+            /data modify storage memory:mem tmp2 set from storage memory:mem tmp1[$addr]
         end
     end
 
     # second level is now in tmp2, store the value
     switch addr % $pagesize
         case $addr in $range($pagesize)
-            /data modify storage mem tmp2[$addr] set from storage mem tmp
+            /data modify storage memory:mem tmp2[$addr] set from storage memory:mem tmp
         end
     end
 
     # Store the third level back into the second
     switch addr / $pagesize % $pagesize
         case $addr in $range($pagesize)
-            /data modify storage mem tmp1[$addr] set from storage mem tmp2
+            /data modify storage memory:mem tmp1[$addr] set from storage memory:mem tmp2
         end
     end
 
     # Store the second level back into the first
     switch addr / ($pagesize * $pagesize)
         case $addr in $range($pagesize)
-            /data modify storage mem mem[$addr] set from storage mem tmp1
+            /data modify storage memory:mem mem[$addr] set from storage memory:mem tmp1
         end
     end
 end
