@@ -1,7 +1,7 @@
 function bit_or(a, b)
     res = 0
     bit = 1
-    for i = 0 to 32
+    for i = 0 to 31
         if a % 2 + b % 2 > 0
             res += bit
         end
@@ -15,7 +15,7 @@ end
 function bit_and(a, b)
     res = 0
     bit = 1
-    for i = 0 to 32
+    for i = 0 to 31
         if a % 2 + b % 2 == 2
             res += bit
         end
@@ -29,7 +29,7 @@ end
 function bit_xor(a, b)
     res = 0
     bit = 1
-    for i = 0 to 32
+    for i = 0 to 31
         if a % 2 + b % 2 == 1
             res += bit
         end

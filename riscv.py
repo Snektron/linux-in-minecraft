@@ -71,7 +71,6 @@ def assemble(inp, test = False):
             if value >= 2**31:
                 value -= 2**32
             values.append(value)
-
         return values
 
 def run(binary, timermatchl, timermatchh):
@@ -79,7 +78,7 @@ def run(binary, timermatchl, timermatchh):
     stdin = '\n'.join([str(v) for v in binary]) + '\nend\n'
     result = subprocess.run(["zig", "build", "run", "--", str(timermatchl), str(timermatchh)], input=stdin, text=True, capture_output=True)
     if len(result.stderr) > 0:
-        print(result.stderr)
+        print('error:', result.stderr)
     if result.returncode != 0:
         raise ValueError()
     registers = result.stdout.strip().split('\n')
