@@ -16,6 +16,10 @@ function memory_clear()
     end
 end
 
+function memory_restore()
+    /data modify storage memory:mem mem set from storage memory:mem rom
+end
+
 # Note: addr is in *words*, not in bytes!
 function memory_get(addr)
     # TODO: Caching system

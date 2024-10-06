@@ -57,18 +57,18 @@ function machine_reset()
     # In extraflags in mini-rv32ima
     reserved = -1
     wfi = 0
-    privilege = 0
+    privilege = 3
 
     for $i in $range(32)
         x[$i] = 0
     end
 
-    memory_clear()
+    memory_restore()
     print_reset()
 end
 
 function machine_dump_state()
-    tell @a "machine state: {wpc=(pc) {wtrap=(trap) {wreserved=(reserved)"
+    tell @a "machine state: {winst=(inst) {wpc=(pc) {wtrap=(trap) {wreserved=(reserved) {wcycle=(totalcycles)"
 
     x0 = x[0]
     x1 = x[1]
@@ -198,6 +198,9 @@ end
 
 function mmio_load(addr)
     switch addr
+        case 0x10000005
+            return 0x60
+        end
         case 0x1100bffc
             return timerh
         end
@@ -591,7 +594,6 @@ function atomic()
             case 0x02
                 # atomic load
                 # TODO: CSR stuff?
-                res = lhs
                 write = 0
                 trap = 0
                 # This implementation can apparently be fairly arbitrary: Allowing stores
@@ -603,6 +605,7 @@ function atomic()
             case 0x03
                 # atomic store (conditional)
                 # TODO: CSR stuff?
+                res = rhs
                 if reserved == src
                     lhs = 0
                 else
@@ -802,6 +805,7 @@ function execute(elapsed_us)
         # Misaligned PC
         trap = 1 + 0
     else if trap == 0
+        prevpcoff = pcoff
         pcoff = pc - RAM_OFFSET
         inst = memory_get(pcoff / 4)
         # Opcode is low 7 bits
@@ -845,12 +849,12 @@ function execute(elapsed_us)
             end
             case $"0b1100111"
                 $itype("JALR")
+                newpc = x[rs1] + imm - 4
                 if rd > 0
                     res = pc + 4
                     x[rd] = res
                 end
-                pc = x[rs1] + imm - 4
-                pcoff = pc - RAM_OFFSET + 4
+                pc = newpc
                 trap = 0
             end
             case $"0b0110111"
@@ -872,7 +876,7 @@ function execute(elapsed_us)
             case $"0b1110011"
                 $itype("SYSTEM")
                 if funct3 == 0
-                    if imm % 255 == 0x0
+                    if imm % 255 == 0x02
                         # MRET
                         # Sets mstatus
                         newmstatus = privilege * 2048 + 128
@@ -893,11 +897,10 @@ function execute(elapsed_us)
                             end
                             case 0x01
                                 # ebreak
-                                # Just dump the machine's state for this one,
-                                # and don't enter the actual trap mode.
-                                tell @a "{Mebreak"
-                                machine_dump_state()
-                                trap = 0
+                                # Also use this as 'debugging' function by dumping machine state
+                                # tell @a "{Mebreak"
+                                # machine_dump_state()
+                                trap = 3 + 1
                             end
                             case 0x105
                                 # WFI
@@ -922,9 +925,7 @@ function execute(elapsed_us)
             case $"0b001111"
                 $itype("FENCE")
                 # NO-OP on this architecture
-                if funct3 == 1
-                    trap = 0
-                end
+                trap = 0
             end
         end
 
@@ -977,6 +978,15 @@ function execute(elapsed_us)
     end
 end
 
+# These commands are meant for interaction
+function resume()
+    paused = 0
+end
+
+function pause()
+    paused = 1
+end
+
 reset
     tell @a "reset"
 
@@ -984,10 +994,39 @@ reset
     # we have to precompute it
     INT_MIN = 0x40000000 + 0x40000000
 
-    selftest()
+    machine_reset()
+
+    totalcycles = 0
+
+    # HART ID
+    x[10] = 0x00
+    # DTB PT, see init_memory_storage.py. This is 0x83000000
+    x[11] = -2097152000
+
+    paused = 1
 
     tell @a "done"
 end
 
 clock tick
+    if paused == 0
+        for i = 1 to 100
+            if totalcycles % 0x1000 == 0
+                tell @a "executing (pc) cycle (totalcycles)"
+            end
+
+            if trap == 0
+                # machine_dump_state()
+
+                execute(1)
+
+                if trap
+                    # machine_dump_state()
+                    tell @a "{Rmachine entered error state"
+                end
+
+                totalcycles++
+            end
+        end
+    end
 end

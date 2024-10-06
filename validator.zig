@@ -4,6 +4,16 @@ const c = @cImport({
     @cInclude("mini-rv32ima.h");
 });
 
+export fn mmio_store(addr: u32, val: u32) void {
+    _ = addr;
+    _ = val;
+}
+
+export fn mmio_load(addr: u32) u32 {
+    _ = addr;
+    return 0;
+}
+
 pub fn main() !void {
     const mem = try std.heap.page_allocator.alloc(u8, (1 << 24) * 4);
     defer std.heap.page_allocator.free(mem);
