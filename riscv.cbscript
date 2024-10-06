@@ -42,6 +42,7 @@ function machine_reset()
     # In extraflags in mini-rv32ima
     reserved = -1
     wfi = 0
+    privilege = 0
 
     for $i in $range(32)
         x[$i] = 0
@@ -737,6 +738,10 @@ function execute(elapsed_us)
     # Handle WFI
     if trap == 0 and wfi
         # Just do nothing
+    else if mip % 256 >= 128 and mie % 256 >= 128 and mstatus % 16 >= 8
+        # Timer interrupt firing
+        trap = -2147483641 # 0x80000007
+        pc -= 4
     else unless pc % 4 == 0
         # Misaligned PC
         trap = 1 + 0
@@ -809,26 +814,42 @@ function execute(elapsed_us)
             case $"0b1110011"
                 $itype("SYSTEM")
                 if funct3 == 0
-                    switch imm
-                        case 0x00
-                            # ecall
-                            # TODO
+                    if imm % 255 == 0x0
+                        # MRET
+                        # Sets mstatus
+                        newmstatus = privilege * 2048 + 128
+                        if mstatus % 256 >= 128
+                            newmstatus = 8
                         end
-                        case 0x01
-                            # ebreak
-                            # Just dump the machine's state for this one
-                            tell @a "{Mebreak"
-                            machine_dump_state()
-                            trap = 0
-                        end
-                        case 0x105
-                            # WFI
-                            if mstatus % 16 < 8
-                                mstatus += 8
+                        mstatus = newmstatus
+                        pc = mepc - 4
+                    else
+                        switch imm
+                            case 0x00
+                                # ecall
+                                if privilege > 0
+                                    trap = 11 + 1
+                                else
+                                    trap = 8 + 1
+                                end
                             end
-                            wfi = 1
-                            pc += 4
-                            trap = 0
+                            case 0x01
+                                # ebreak
+                                # Just dump the machine's state for this one,
+                                # and don't enter the actual trap mode.
+                                tell @a "{Mebreak"
+                                machine_dump_state()
+                                trap = 0
+                            end
+                            case 0x105
+                                # WFI
+                                if mstatus % 16 < 8
+                                    mstatus += 8
+                                end
+                                wfi = 1
+                                pc += 4
+                                trap = 0
+                            end
                         end
                     end
                 else if funct3 == 4
@@ -848,13 +869,50 @@ function execute(elapsed_us)
                 end
             end
         end
+
+        unless wfi
+            pc += 4
+        end
     end
 
     if trap
-        # TODO: Set machine state?
-        tell @a "{Rerror trap={w(trap) {wpc=(pc) {winst=(inst) {wopcode=(opcode)"
-    else unless wfi
-        pc += 4
+        pcoff = pc - RAM_OFFSET
+        tell @a "{Rerror trap={w(trap) {wpc=(pc) {woffset=(pcoff) {winst=(inst) {wopcode=(opcode)"
+
+        if trap < 0
+            # Its an interrupt, not a trap
+            mcause = trap
+            mtval = 0
+            pc += 4 # We subtracted this value when firing the interrupt
+        else
+            mcause = trap - 1
+            if trap > 5 and trap <= 8
+                # TODO: This value is probably not always correct. Need to double check
+                # what is actually required here.
+                # It probably doesn't matter as ideally we'll never hit a trap thats not
+                # an interrupt and not ecall.
+                mtval = res
+            else
+                mtval = pc
+            end
+
+            # Update mstatus
+            # Sets privilege and MPIE bits
+            newmstatus = privilege * 2048
+            if mstatus % 16 >= 8
+                newmstatus = 256
+            end
+            mstatus = newmstatus
+
+            privilege = 3
+
+            mepc = pc
+            pc = mtvec - 4
+        end
+
+    end
+
+    unless wfi
         cyclel++
         if cyclel == 0
             cycleh++
