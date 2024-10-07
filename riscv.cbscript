@@ -2,6 +2,7 @@ dir "/home/robin/.local/share/PrismLauncher/instances/linux/.minecraft/saves/lin
 desc "oef auwie oei"
 
 array x[32]
+array y_x[32]
 
 import riscv.py
 import bit
@@ -11,6 +12,29 @@ import longmath
 import print
 
 $debug_decode = 0
+
+$SAVED_VALUES = [
+    "pc",
+    "trap",
+    "mstatus",
+    "cyclel",
+    "cycleh",
+    "timerl",
+    "timerh",
+    "timermatchl",
+    "timermatchh",
+    "mscratch",
+    "mtvec",
+    "mie",
+    "mip",
+    "mepc",
+    "mtval",
+    "mcause",
+    "reserved",
+    "wfi",
+    "privilege",
+    "totalcycles"
+]
 
 function machine_reset()
     # All memory is offset by 0x8000_0000
@@ -50,14 +74,12 @@ function machine_reset()
     mtval = 0
     mcause = 0
 
-    # TODO: This seems to be custom. Do we actually need this ever? Otherwise
-    # we will just split it up across separate words for ease of access
-    extraflags = 0
-
     # In extraflags in mini-rv32ima
     reserved = -1
     wfi = 0
     privilege = 3
+
+    totalcycles = 0
 
     for $i in $range(32)
         x[$i] = 0
@@ -65,6 +87,7 @@ function machine_reset()
 
     memory_restore()
     print_reset()
+    update_debug_display()
 end
 
 function machine_dump_state()
@@ -197,18 +220,19 @@ macro $jtype($class)
 end
 
 function mmio_load(addr)
+    mmio_res = 0
     switch addr
         case 0x10000005
-            return 0x60
+            mmio_res = 0x60
         end
         case 0x1100bffc
-            return timerh
+            mmio_res = timerh
         end
         case 0x1100bff8
-            return timerl
+            mmio_res = timerl
         end
     end
-    return 0
+    return mmio_res
 end
 
 function mmio_store(addr, val)
@@ -216,7 +240,7 @@ function mmio_store(addr, val)
         case 0x10000000
             # UART
             putc(val)
-            flush() # TODO: Remove and use natural line buffer, this is just for testing
+            # flush() # TODO: Remove and use natural line buffer, this is just for testing
         end
         case 0x11004004
             timermatchh = val
@@ -477,55 +501,56 @@ end
 
 function load()
     src = x[rs1] + imm - RAM_OFFSET
-    switch funct3
-        case 0x0
-            # Load byte, signed
-            res = memory_load_u8(src)
-            # Sign extend
-            if res >= 0x80
-                res -= 0x100
-            end
-            trap = 0
-        end
-        case 0x1
-            # Load half, signed
-            v0 = memory_load_u8(src)
-            v1 = memory_load_u8(src + 1)
-            res = v1 * 0x100 + v0
-            if res >= 0x8000
-                res -= 0x10000
-            end
-            trap = 0
-        end
-        case 0x2
-            # Load word
-            # Happy path: aligned word load
-            if src % 4 == 0
-                if src - INT_MIN >= RAM_MAX - INT_MIN
-                    res = mmio_load(src + RAM_OFFSET)
-                else
-                    res = memory_get(src / 4)
+    if src - INT_MIN >= RAM_MAX - INT_MIN
+        res = mmio_load(src + RAM_OFFSET)
+        trap = 0
+    else
+        switch funct3
+            case 0x0
+                # Load byte, signed
+                res = memory_load_u8(src)
+                # Sign extend
+                if res >= 0x80
+                    res -= 0x100
                 end
-            else
+                trap = 0
+            end
+            case 0x1
+                # Load half, signed
                 v0 = memory_load_u8(src)
                 v1 = memory_load_u8(src + 1)
-                v2 = memory_load_u8(src + 2)
-                v3 = memory_load_u8(src + 3)
-                res = v3 * 0x1000000 + v2 * 0x10000 + v1 * 0x100 + v0
+                res = v1 * 0x100 + v0
+                if res >= 0x8000
+                    res -= 0x10000
+                end
+                trap = 0
             end
-            trap = 0
-        end
-        case 0x4
-            # Load byte, unsigned
-            res = memory_load_u8(src)
-            trap = 0
-        end
-        case 0x5
-            # Load half, unsigned
-            v0 = memory_load_u8(src)
-            v1 = memory_load_u8(src + 1)
-            res = v1 * 0x100 + v0
-            trap = 0
+            case 0x2
+                # Load word
+                # Happy path: aligned word load
+                if src % 4 == 0
+                    res = memory_get(src / 4)
+                else
+                    v0 = memory_load_u8(src)
+                    v1 = memory_load_u8(src + 1)
+                    v2 = memory_load_u8(src + 2)
+                    v3 = memory_load_u8(src + 3)
+                    res = v3 * 0x1000000 + v2 * 0x10000 + v1 * 0x100 + v0
+                end
+                trap = 0
+            end
+            case 0x4
+                # Load byte, unsigned
+                res = memory_load_u8(src)
+                trap = 0
+            end
+            case 0x5
+                # Load half, unsigned
+                v0 = memory_load_u8(src)
+                v1 = memory_load_u8(src + 1)
+                res = v1 * 0x100 + v0
+                trap = 0
+            end
         end
     end
 
@@ -538,36 +563,37 @@ function store()
     dst = x[rs1] + imm - RAM_OFFSET
     val = x[rs2]
 
-    switch funct3
-        case 0x0
-            # Byte store
-            memory_store_u8(dst, val % 0x100)
-            trap = 0
-        end
-        case 0x1
-            # Half store
-            # TODO: Optimize
-            memory_store_u8(dst, val % 0x100)
-            memory_store_u8(dst + 1, val / 0x100 % 0x100)
-            trap = 0
-        end
-        case 0x2
-            # Word store
-            # Happy path: aligned word store
-            if dst % 4 == 0
-                if dst - INT_MIN >= RAM_MAX - INT_MIN
-                    mmio_store(dst + RAM_OFFSET, val)
-                else
-                    memory_set(dst / 4, val)
-                end
-            else
+    if dst - INT_MIN >= RAM_MAX - INT_MIN
+        mmio_store(dst + RAM_OFFSET, val)
+        trap = 0
+    else
+        switch funct3
+            case 0x0
+                # Byte store
+                memory_store_u8(dst, val % 0x100)
+                trap = 0
+            end
+            case 0x1
+                # Half store
                 # TODO: Optimize
                 memory_store_u8(dst, val % 0x100)
                 memory_store_u8(dst + 1, val / 0x100 % 0x100)
-                memory_store_u8(dst + 2, val / 0x10000 % 0x100)
-                memory_store_u8(dst + 3, val / 0x1000000 % 0x100)
+                trap = 0
             end
-            trap = 0
+            case 0x2
+                # Word store
+                # Happy path: aligned word store
+                if dst % 4 == 0
+                    memory_set(dst / 4, val)
+                else
+                    # TODO: Optimize
+                    memory_store_u8(dst, val % 0x100)
+                    memory_store_u8(dst + 1, val / 0x100 % 0x100)
+                    memory_store_u8(dst + 2, val / 0x10000 % 0x100)
+                    memory_store_u8(dst + 3, val / 0x1000000 % 0x100)
+                end
+                trap = 0
+            end
         end
     end
 end
@@ -987,6 +1013,42 @@ function pause()
     paused = 1
 end
 
+function save()
+    /data modify storage riscv:checkpoint mem set from storage memory:mem mem
+
+    for $n in $SAVED_VALUES
+        /execute store result storage riscv:checkpoint $n int 1 run scoreboard players get Global $n
+    end
+
+    for $i in $range(32)
+        reg_val = x[$i]
+        /execute store result storage riscv:checkpoint registers.x$i int 1 run scoreboard players get Global reg_val
+    end
+    tell @a "{Msaved machine state for cycle=(totalcycles)"
+end
+
+function restore()
+    /data modify storage memory:mem mem set from storage riscv:checkpoint mem
+
+    for $n in $SAVED_VALUES
+        /execute store result score Global $n run data get storage riscv:checkpoint $n
+    end
+
+    for $i in $range(32)
+        /execute store result score Global reg_val run data get storage riscv:checkpoint registers.x$i
+        x[$i] = reg_val
+    end
+    update_debug_display()
+    tell @a "{Mrestored machine state to cycle=(totalcycles)"
+end
+
+function update_debug_display()
+    /execute store result score pc debug run scoreboard players get Global pc
+    /execute store result score totalcycles debug run scoreboard players get Global totalcycles
+    /execute store result score trap debug run scoreboard players get Global trap
+    /execute store result score paused debug run scoreboard players get Global paused
+end
+
 reset
     tell @a "reset"
 
@@ -994,9 +1056,10 @@ reset
     # we have to precompute it
     INT_MIN = 0x40000000 + 0x40000000
 
-    machine_reset()
+    /scoreboard objectives add debug dummy
+    /scoreboard objectives setdisplay sidebar debug
 
-    totalcycles = 0
+    machine_reset()
 
     # HART ID
     x[10] = 0x00
@@ -1010,10 +1073,12 @@ end
 
 clock tick
     if paused == 0
-        for i = 1 to 100
-            if totalcycles % 0x1000 == 0
-                tell @a "executing (pc) cycle (totalcycles)"
-            end
+        update_debug_display()
+
+        for i = 1 to 50
+            # if totalcycles % 0x1000 == 0
+            #     tell @a "executing (pc) cycle (totalcycles)"
+            # end
 
             if trap == 0
                 # machine_dump_state()
@@ -1021,7 +1086,7 @@ clock tick
                 execute(1)
 
                 if trap
-                    # machine_dump_state()
+                    machine_dump_state()
                     tell @a "{Rmachine entered error state"
                 end
 

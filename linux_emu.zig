@@ -13,9 +13,9 @@ export fn mmio_store(addr: u32, val: u32) void {
         0x10000000 => {
             // std.debug.print("{} @ {} UART: {c}\n", .{totalcycles, state.pc, @as(u8, @truncate(val))});
             stdout.writeByte(@truncate(val)) catch @panic("write failed");
-            // if (val == '\n') {
-            //     std.log.debug("write @ cycle {}", .{ totalcycles });
-            // }
+            if (val == '\n') {
+                std.log.debug("write @ cycle {}", .{ totalcycles });
+            }
         },
         0x11004004 => {
             state.timermatchh = val;
@@ -27,7 +27,7 @@ export fn mmio_store(addr: u32, val: u32) void {
             std.debug.print("SYSCON: {}\n", .{val});
         },
         else => {
-            std.log.warn("invalid mmio write @ 0x{x:0>8} = {}", .{addr, val});
+            // std.log.warn("invalid mmio write @ 0x{x:0>8} = {}", .{addr, val});
         },
     }
 }
@@ -39,6 +39,41 @@ export fn mmio_load(addr: u32) u32 {
         0x1100bff8 => state.timerl,
         else => 0,
     };
+}
+
+fn save(mem: []const u8) !void {
+    std.log.debug("saving machine state @ {}", .{totalcycles});
+    {
+        var file = try std.fs.cwd().createFile("state/machine.state", .{});
+        defer file.close();
+        var bw = std.io.bufferedWriter(file.writer());
+        var writer = bw.writer();
+
+        inline for (std.meta.fields(c.MiniRV32IMAState)) |field| {
+            const fname = field.name;
+            if (comptime (!std.mem.eql(u8, fname, "regs") and !std.mem.eql(u8, fname, "extraflags"))) {
+                try writer.print("{s} {}\n", .{fname, @field(state, fname)});
+            }
+        }
+
+        try writer.print("privilege {}\n", .{state.extraflags & 3});
+        try writer.print("wfi {}\n", .{ (state.extraflags & 4) >> 2});
+        try writer.print("reserved {}\n", .{state.extraflags >> 3});
+        try writer.print("totalcycles {}\n", .{totalcycles});
+
+        for (0..32) |i| {
+            try writer.print("x{} {}\n", .{i, state.regs[i]});
+        }
+
+        try bw.flush();
+    }
+
+    {
+        var file = try std.fs.cwd().createFile("state/memory.dump", .{});
+        defer file.close();
+        var writer = file.writer();
+        try writer.writeAll(mem);
+    }
 }
 
 pub fn main() !void {
@@ -76,15 +111,12 @@ pub fn main() !void {
     totalcycles = 0;
 
     while (true) {
-        if (totalcycles % 0x1000 == 0) {
-            std.debug.print("executing {} cycle {}\n", .{ @as(i32, @bitCast(state.pc)), totalcycles });
-        }
-        if (totalcycles > 500_000) {
-            std.process.exit(0);
-        }
-        if (totalcycles == 73728) {
-
-        }
+        // if (totalcycles % 0x1000 == 0) {
+        //     std.debug.print("executing {} cycle {}\n", .{ @as(i32, @bitCast(state.pc)), totalcycles });
+        // }
+        // if (totalcycles > 500_000) {
+        //     std.process.exit(0);
+        // }
         switch (c.MiniRV32IMAStep(&state, mem.ptr, 0, 1, 1)) {
             0 => {
                 if (state.mcause == 3) {
@@ -101,5 +133,8 @@ pub fn main() !void {
             }
         }
         totalcycles +%= 1;
+        // if (totalcycles == 294749) {
+        //     try save(mem);
+        // }
     }
 }

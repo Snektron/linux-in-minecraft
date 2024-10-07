@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os.path
-from amulet_nbt import load, ListTag, IntTag, CompoundTag, NamedTag
+from amulet_nbt import ListTag, IntTag, CompoundTag, NamedTag
 
 ap = argparse.ArgumentParser(description="initialize memory data storage nbt with a risc-v image")
 ap.add_argument('world_path', type=str, help='Path to minecraft world')

@@ -16,7 +16,8 @@ def read_minirv_trace(path):
         pc = int(parts[1], 16)
         inst = int(parts[2], 0)
         cycle = int(parts[3])
-        regs = [int(x.split(':')[1], 16) for x in parts[4:]]
+        reserved = int(parts[4])
+        regs = [int(x.split(':')[1], 16) for x in parts[5:]]
         trace[cycle] = (pc, inst, regs)
     return trace
 
@@ -66,9 +67,11 @@ actual = read_minecraft_trace(args.actual)
 
 expected_cycles = max(expected.keys())
 actual_cycles = max(actual.keys())
+start = max(min(expected.keys()), min(actual.keys()))
+end = min(max(expected.keys()), max(actual.keys()))
 
-print(expected_cycles, actual_cycles)
-for cycle in range(min(expected_cycles, actual_cycles)):
+print(start, end)
+for cycle in range(start, end):
     e_pc, e_inst, e_regs = expected[cycle]
     a_pc, ax_inst, a_regs = actual[cycle]
     a_inst = actual[cycle + 1][1]

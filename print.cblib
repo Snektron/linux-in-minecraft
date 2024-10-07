@@ -1,4 +1,4 @@
-$MAX_LINE = 53
+$MAX_LINE = 80
 array linebuffer[$MAX_LINE]
 
 function print_reset()
