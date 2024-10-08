@@ -22,9 +22,9 @@ Written against Minecraft 1.20.6.
 
 Its a RISC-V I+M+A+Zicsr+Zifencei emulator written in [cbscript](https://github.com/SethBling/cbscript), a scripting language that compiles relatively normal code to a set of minecraft command functions and places them in a datapack.
 
-Data is mostly stored in scoreboards scores. Scoreboard score values are 32-bit signed integers. Additionally, minecraft allows some [operations](https://minecraft.fandom.com/wiki/Argument_types#operation) on these scores, which allows "relatively" efficient implementation of the emulator. There are only a few operations though, so most of the other ones (bit operations, 64-bit multiply, division, etc) are emulated.
+Data is mostly stored in scoreboards scores. Scoreboard score values are 32-bit signed integers. Additionally, minecraft allows some [operations](https://minecraft.wiki/w/Scoreboard#Players_commands) on these scores, which allows "relatively" efficient implementation of the emulator. There are only a few operations though, so most of the other ones (bit operations, 64-bit multiply, division, etc) are emulated.
 
-Memory is stored in minecrafts [data storage](https://minecraft.fandom.com/wiki/Commands/data). There is a B-tree of 3 levels of 256 elements, each cell a 32-bit value.
+Memory is stored in minecrafts [data storage](https://minecraft.wiki/w/Commands/data). There is a B-tree of 3 levels of 256 elements, each cell a 32-bit value.
 
 ## How to get it?
 
